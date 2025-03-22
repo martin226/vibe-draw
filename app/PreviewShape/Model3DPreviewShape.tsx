@@ -217,8 +217,8 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
             gap: 5
           }}
         >
-          <Icon 
-            icon="duplicate" 
+          <Icon
+            icon="duplicate"
             onClick={() => {
               if (navigator && navigator.clipboard) {
                 navigator.clipboard.writeText(shape.props.threeJsCode)
