@@ -2,7 +2,7 @@ import { Editor, createShapeId, getSvgAsImage } from '@tldraw/tldraw'
 import { getSelectionAsText } from './getSelectionAsText'
 import { getModelFromAnthropic } from './getModelFromAnthropic'
 import { blobToBase64 } from './blobToBase64'
-import { addGridToSvg } from './addGridToSvg'
+// import { addGridToSvg } from './addGridToSvg'
 import { Model3DPreviewShape } from '../PreviewShape/Model3DPreviewShape'
 
 export async function vibe3DCode(editor: Editor, apiKey: string) {
@@ -33,8 +33,8 @@ export async function vibe3DCode(editor: Editor, apiKey: string) {
   }
 
   // Add the grid lines to the SVG
-  const grid = { color: 'red', size: 100, labels: true }
-  addGridToSvg(svg, grid)
+  // const grid = { color: 'red', size: 100, labels: true }
+  // addGridToSvg(svg, grid)
 
   if (!svg) throw Error(`Could not get the SVG.`)
 
@@ -59,8 +59,6 @@ export async function vibe3DCode(editor: Editor, apiKey: string) {
       apiKey,
       text: getSelectionAsText(editor),
       previousPreviews,
-      grid,
-      theme: editor.user.getUserPreferences().isDarkMode ? 'dark' : 'light',
     })
 
     if (!json) {
@@ -129,24 +127,19 @@ export async function vibe3DCode(editor: Editor, apiKey: string) {
   }
 }
 
-// Process ThreeJS code to work with our environment
 function processThreeJsCode(code: string): string {
   let processedCode = code;
   
-  // Remove all import statements
-  // Match both ES6 imports and CommonJS requires
-  processedCode = processedCode.replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, ''); // Named imports
-  processedCode = processedCode.replace(/^import\s+\*\s+as\s+.*?\s+from\s+['"].*?['"];?\s*$/gm, ''); // Namespace imports
-  processedCode = processedCode.replace(/^import\s+['"].*?['"];?\s*$/gm, ''); // Side effect imports
-  processedCode = processedCode.replace(/^const\s+.*?\s*=\s*require\(['"].*?['"]\);?\s*$/gm, ''); // CommonJS requires
+  processedCode = processedCode.replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, '');
+  processedCode = processedCode.replace(/^import\s+\*\s+as\s+.*?\s+from\s+['"].*?['"];?\s*$/gm, '');
+  processedCode = processedCode.replace(/^import\s+['"].*?['"];?\s*$/gm, '');
+  processedCode = processedCode.replace(/^const\s+.*?\s*=\s*require\(['"].*?['"]\);?\s*$/gm, '');
   
-  // More specific Three.js import patterns
   processedCode = processedCode.replace(/import\s+\*\s+as\s+THREE\s+from\s+['"]three['"];?\s*/g, '');
   processedCode = processedCode.replace(/import\s+{\s*OrbitControls\s*}\s+from\s+['"]three\/addons\/controls\/OrbitControls\.js['"];?\s*/g, '');
-  processedCode = processedCode.replace(/import\s+{\s*[^}]*\s*}\s+from\s+['"]three['"];?\s*/g, ''); // Destructured imports from three
-  processedCode = processedCode.replace(/import\s+THREE\s+from\s+['"]three['"];?\s*/g, ''); // CommonJS requires
+  processedCode = processedCode.replace(/import\s+{\s*[^}]*\s*}\s+from\s+['"]three['"];?\s*/g, '');
+  processedCode = processedCode.replace(/import\s+THREE\s+from\s+['"]three['"];?\s*/g, '');
   
-  // Replace THREE.OrbitControls with OrbitControls
   processedCode = processedCode.replace(/THREE\.OrbitControls/g, 'OrbitControls');
   
   return processedCode;
