@@ -78,13 +78,17 @@ function Scene() {
 export function ThreeJSCanvas({ visible = true }: { visible?: boolean }) {
   return (
     <div 
-      className="w-full h-full"
       style={{ 
-        display: visible ? 'block' : 'none' 
+        display: visible ? 'block' : 'none',
+        width: '100%',
+        height: '100%'
       }}
     >
       <Canvas
-        className="w-full h-full"
+        style={{
+          width: '100%',
+          height: '100%'
+        }}
         camera={{ position: [0, 1, 5], fov: 50 }}
         gl={{ 
           antialias: true,
