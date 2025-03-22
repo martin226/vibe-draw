@@ -9,6 +9,7 @@ import { Model3DPreviewShapeUtil } from './PreviewShape/Model3DPreviewShape'
 import ThreeJSCanvas from './components/three/canvas'
 import { useState } from 'react'
 import TestAddCodeButton from './components/TestAddCodeButton'
+import { APIKeyInput } from './components/APIKeyInput'
 
 const Tldraw = dynamic(async () => (await import('@tldraw/tldraw')).Tldraw, {
 	ssr: false,
@@ -93,7 +94,10 @@ export default function App() {
 							</div>
 						} 
 						shapeUtils={shapeUtils}
-					></Tldraw>
+					>
+
+						<APIKeyInput />
+					</Tldraw>
 				</div>
 				<ThreeJSCanvas visible={activeTab === 'threejs'} />
 			</div>
