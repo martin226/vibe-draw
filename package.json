@@ -14,11 +14,14 @@
     "@react-three/fiber": "8.13.6",
     "@tldraw/tldraw": "^2.0.0-canary.d0f6ef80fcf9",
     "@types/three": "^0.174.0",
+    "leva": "^0.10.0",
     "lucide-react": "^0.483.0",
     "next": "14.0.3",
+    "nipplejs": "^0.10.2",
+    "r3f-perf": "^7.2.3",
     "react": "^18",
     "react-dom": "^18",
-    "three": "0.150.1",
+    "three": "^0.174.0",
     "zustand": "^5.0.3"
   },
   "devDependencies": {
