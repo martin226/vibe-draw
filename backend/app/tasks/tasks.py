@@ -31,7 +31,7 @@ class AsyncAITask(Task):
         """This should be implemented by subclasses."""
         raise NotImplementedError
 
-class StreamPromptTask(AsyncAITask):
+class GenericPromptTask(AsyncAITask):
     """Generic task to stream a prompt to an AI model."""
     
     async def _run_async(self, task_id: str, prompt: str, system_prompt: Optional[str] = None,
