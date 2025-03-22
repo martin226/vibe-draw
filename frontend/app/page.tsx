@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic'
 import './tldraw.css'
 import { Vibe3DCodeButton } from './components/Vibe3DCodeButton'
 import { AutoDrawButton } from './components/AutoDrawButton'
-import { APIKeyInput } from './components/APIKeyInput'
 import { PreviewShapeUtil } from './PreviewShape/PreviewShape'
 import { Model3DPreviewShapeUtil } from './PreviewShape/Model3DPreviewShape'
 import ThreeJSCanvas from './components/three/canvas'
@@ -94,11 +93,8 @@ export default function App() {
 							</div>
 						} 
 						shapeUtils={shapeUtils}
-					>
-						<APIKeyInput />
-					</Tldraw>
+					></Tldraw>
 				</div>
-				
 				<ThreeJSCanvas visible={activeTab === 'threejs'} />
 			</div>
 			<TestAddCodeButton activeTab={activeTab} setActiveTab={setActiveTab} />

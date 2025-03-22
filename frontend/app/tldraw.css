@@ -1538,7 +1538,7 @@ it from receiving any pointer events or affecting the cursor. */
 	min-height: 40px;
 	min-width: 40px;
 	padding: 0px;
-	background: #f0f0f0;
+	background: #ffffff;
 	border: none;
 }
 
@@ -1590,6 +1590,7 @@ it from receiving any pointer events or affecting the cursor. */
 
 .tlui-button__menu:nth-last-child(1) {
 	margin-bottom: 0px;
+	background: #ffffff;
 }
 
 @media (hover: hover) {
@@ -1696,6 +1697,9 @@ it from receiving any pointer events or affecting the cursor. */
 .tlui-buttons__horizontal {
 	display: flex;
 	flex-direction: row;
+	background-color: #ffffff;
+	border: none;
+	border-radius: 4px;
 }
 .tlui-buttons__horizontal > * {
 	margin-left: -2px;
@@ -1957,6 +1961,9 @@ it from receiving any pointer events or affecting the cursor. */
 	position: relative;
 	display: flex;
 	align-content: stretch;
+	background: #ffffff;
+	border-radius: 4px;
+	border: none;
 }
 
 .tlui-popover__content {
