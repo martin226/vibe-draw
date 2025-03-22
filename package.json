@@ -1,0 +1,29 @@
+{
+  "name": "vibe-3d-code",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.56.17",
+    "@react-three/fiber": "^8.11.0",
+    "@tldraw/tldraw": "^2.0.0-canary.d0f6ef80fcf9",
+    "@types/three": "^0.174.0",
+    "next": "14.0.3",
+    "react": "^18",
+    "react-dom": "^18",
+    "three": "^0.174.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.3",
+    "typescript": "^5"
+  }
+}
