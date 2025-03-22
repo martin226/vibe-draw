@@ -2972,3 +2972,7 @@ body > div.editor > div:nth-child(1) > div > div.tlui-layout > div.tlui-layout__
 #radix-\:r8\: > div > button:nth-child(11) {
 	display: none !important;
 }
+
+body > div.editor > div:nth-child(1) > div > div.tlui-layout > div.tlui-layout__bottom > div.tlui-layout__bottom__main > div.tlui-navigation-zone {
+	display: none !important;
+}
