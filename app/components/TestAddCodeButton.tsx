@@ -56,15 +56,13 @@ export default function TestAddCodeButton({ activeTab, setActiveTab }: TestAddCo
 					zIndex: 10000,
 					bottom: '80px',
 					right: '20px',
-					padding: '10px 15px',
-					backgroundColor: '#4CAF50',
+					padding: '6px 12px',
+					fontWeight: '400',
+					backgroundColor: '#007bff',
 					color: 'white',
-					fontWeight: 'bold',
-					border: '2px solid #2E7D32',
-					borderRadius: '5px',
+					borderRadius: '4px',
 					cursor: 'pointer',
-					boxShadow: '0 4px 8px rgba(0,0,0,0.2)',
-					fontSize: '16px'
+					fontSize: '18px'
 				}}
 				onClick={handleAddCode}
 			>

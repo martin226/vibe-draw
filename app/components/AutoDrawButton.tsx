@@ -40,7 +40,7 @@ export function AutoDrawButton() {
     // Add initial toast notification
     addToast({
       title: 'Auto 3D Enabled',
-      description: 'Draw something and pause for 2 seconds to generate a 3D model',
+      description: 'Draw something and pause for 3 seconds to generate a 3D model',
       icon: 'check',
     })
     

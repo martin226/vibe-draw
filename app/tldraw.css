@@ -22,7 +22,7 @@
 	/* Radius */
 	--radius-0: 2px;
 	--radius-1: 4px;
-	--radius-2: 6px;
+	--radius-2: 4px;
 	--radius-3: 9px;
 	--radius-4: 11px;
 	/* Z Index */
@@ -120,15 +120,15 @@
 	--color-panel-overlay: hsl(0, 0%, 100%, 82%);
 	--color-panel: hsl(0, 0%, 99%);
 	--color-focus: hsl(214, 100%, 29%);
-	--color-selected: hsl(214, 84%, 56%);
+	--color-selected: #007bff;
 	--color-selected-contrast: hsl(0, 0%, 100%);
 	--color-selection-fill: hsl(210, 100%, 56%, 24%);
-	--color-selection-stroke: hsl(214, 84%, 56%);
+	--color-selection-stroke: #007bff;
 	--color-text-0: hsl(0, 0%, 11%);
 	--color-text-1: hsl(0, 0%, 18%);
 	--color-text-3: hsl(220, 2%, 65%);
 	--color-text-shadow: hsl(0, 0%, 100%);
-	--color-primary: hsl(214, 84%, 56%);
+	--color-primary: #007bff;
 	--color-warn: hsl(0, 90%, 43%);
 	--color-text: hsl(0, 0%, 0%);
 	--color-laser: hsl(0, 100%, 50%);
@@ -1588,6 +1588,7 @@ it from receiving any pointer events or affecting the cursor. */
 	text-rendering: optimizeLegibility;
 	font-size: 12px;
 	gap: 0px;
+	border-radius: 4px;
 	color: var(--color-text-1);
 }
 
@@ -1633,7 +1634,7 @@ it from receiving any pointer events or affecting the cursor. */
 @media (hover: hover) {
 	.tlui-button::after {
 		background-color: var(--color-muted-2);
-		opacity: 0;
+		opacity: 1;
 	}
 
 	.tlui-button:not(:disabled):hover::after {
@@ -1690,6 +1691,7 @@ it from receiving any pointer events or affecting the cursor. */
 	min-height: 40px;
 	min-width: 40px;
 	padding: 0px;
+	background: #f0f0f0
 }
 
 .tlui-button__icon-left {
@@ -1730,6 +1732,7 @@ it from receiving any pointer events or affecting the cursor. */
 	min-width: 128px;
 	width: 100%;
 	gap: 8px;
+	background: #f0f0f0;
 	margin: -4px 0px;
 }
 

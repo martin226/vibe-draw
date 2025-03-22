@@ -110,15 +110,10 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
     <script src="https://unpkg.com/html2canvas"></script>
 </head>
 <body>
-    <div class="controls-panel">
-        <button id="capture-button">📷 Capture Image</button>
-        <button id="reset-view-button">🔄 Reset View</button>
-        <button id="toggle-animation-button">⏯️ Toggle Animation</button>
-    </div>
     <div class="help-tooltip">
-        <p>🖱️ Left-click + drag: Rotate</p>
-        <p>🖱️ Right-click + drag: Pan</p>
-        <p>🖱️ Scroll: Zoom</p>
+        <p>Left-click + drag: Rotate</p>
+        <p>Right-click + drag: Pan</p>
+        <p>Scroll: Zoom</p>
     </div>
     <script type="module">
     import * as THREE from "https://esm.sh/three";
@@ -208,10 +203,14 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
             height: 40,
             width: 40,
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
+            alignItems: 'left',
             justifyContent: 'center',
             cursor: 'pointer',
             pointerEvents: 'all',
+            paddingLeft: 5,
+            paddingTop: 5,
+            gap: 5
           }}
           onClick={() => {
             if (navigator && navigator.clipboard) {
@@ -225,6 +224,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
           onPointerDown={(e) => e.stopPropagation()}
         >
           <Icon icon="duplicate" />
+          <Icon icon="redo" />
         </div>
         {htmlToUse && (
           <div
