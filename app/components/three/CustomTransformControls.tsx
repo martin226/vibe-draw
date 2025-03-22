@@ -1,91 +1,174 @@
-import { useRef, useEffect, useCallback } from 'react'
-import { useThree } from '@react-three/fiber'
+import { useRef, useState, useEffect, useCallback } from 'react'
+import { TransformControls } from '@react-three/drei'
 import * as THREE from 'three'
-import { TransformControls as ThreeTransformControls } from 'three/examples/jsm/controls/TransformControls.js'
-import { useAppStore } from '@/store/appStore'
+import { useAppStore, useObjectStore } from '@/store/appStore'
+import { useThree } from '@react-three/fiber'
 
 interface CustomTransformControlsProps {
   object: THREE.Object3D | null
   onDeselect?: () => void
 }
 
-const TRANSFORM_MODES = ['translate', 'rotate', 'scale'] as const;
-type TransformMode = typeof TRANSFORM_MODES[number];
-
-// Create a simple component that doesn't render anything but adds TransformControls to the scene
 export function CustomTransformControls({ object, onDeselect }: CustomTransformControlsProps) {
-  const { scene, camera, gl } = useThree();
   const { transformMode, setTransformMode } = useAppStore();
+  const { updateObject } = useObjectStore();
+  const transformControlsRef = useRef<any>(null);
+  const [lastClick, setLastClick] = useState<number>(0);
+  const { scene } = useThree();
+  const [isObjectInScene, setIsObjectInScene] = useState(false);
+  const debug = process.env.NODE_ENV === 'development';
   
-  // Maintain a reference to the controls
-  const controlsRef = useRef<ThreeTransformControls | null>(null);
+  // Raycaster setup for double-click detection
+  const raycasterRef = useRef(new THREE.Raycaster());
+  const mouseRef = useRef(new THREE.Vector2());
   
-  // Handle double click event to cycle modes
-  const cycleTransformMode = useCallback(() => {
-    if (!controlsRef.current) return;
-    
-    const currentMode = controlsRef.current.mode;
-    const currentIndex = TRANSFORM_MODES.indexOf(currentMode as TransformMode);
-    const nextIndex = (currentIndex + 1) % TRANSFORM_MODES.length;
-    const newMode = TRANSFORM_MODES[nextIndex];
-    
-    controlsRef.current.setMode(newMode);
-    setTransformMode(newMode);
-  }, [setTransformMode]);
-  
-  // Create and manage the transform controls
+  // Validate if object is actually in the scene
   useEffect(() => {
-    if (!object || !camera) return;
-    
-    // Clean up any existing controls first
-    if (controlsRef.current) {
-      controlsRef.current.dispose();
+    if (!object) {
+      setIsObjectInScene(false);
+      return;
     }
     
-    // Create new controls and attach to the object
-    const controls = new ThreeTransformControls(camera, gl.domElement);
-    controls.size = 0.75;
-    controls.attach(object);
-    
-    // Set the initial mode
-    const initialMode = transformMode || 'translate';
-    controls.setMode(initialMode);
-    
-    // Add controls to the scene - they are a normal Object3D
-    // Need to cast to Object3D since TypeScript doesn't recognize that TransformControls extends Object3D
-    scene.add(controls as unknown as THREE.Object3D);
-    controlsRef.current = controls;
-    
-    // Set up keyboard shortcut
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'q') {
-        cycleTransformMode();
+    // Check if object is in the scene hierarchy
+    let isInScene = false;
+    const checkObject = (o: THREE.Object3D) => {
+      if (o === object) {
+        isInScene = true;
+        return;
+      }
+      
+      for (const child of o.children) {
+        checkObject(child);
+        if (isInScene) break;
       }
     };
     
-    // Set up double click handling
-    const handleDoubleClick = (event: MouseEvent) => {
-      // We want to filter for double clicks only on the controls
-      // Since we can't easily test that, we'll leave it as is for now
-      cycleTransformMode();
+    // Start checking from scene root
+    checkObject(scene);
+    
+    console.log(`Object ${object.uuid} is ${isInScene ? '' : 'NOT '} in scene`);
+    setIsObjectInScene(isInScene);
+    
+    if (!isInScene && object) {
+      console.warn(`Selected object ${object.uuid} is not in scene, cannot attach controls`);
+      if (onDeselect) onDeselect();
+    }
+  }, [object, scene, onDeselect]);
+  
+  // Set a global flag to indicate that TransformControls is handling the event
+  const handlePointerDown = (event: any) => {
+    console.log("Pointer down on TransformControls");
+    window.__transformControlsActive = true;
+    
+    // Stop propagation
+    if (event.stopPropagation) {
+      event.stopPropagation();
+    }
+  };
+  
+  const handleMouseUp = (event: any) => {
+    console.log("Mouse up event on TransformControls");
+    
+    // Mark event as handled by transform controls
+    window.__transformControlsActive = true;
+    
+    // Stop propagation to prevent the event from reaching the object
+    if (event.stopPropagation) {
+      event.stopPropagation();
+    }
+    
+    // Prevent default behavior
+    if (event.preventDefault) {
+      event.preventDefault();
+    }
+    
+    const now = Date.now();
+    console.log("Time since last click:", now - lastClick, "ms");
+    
+    if (now - lastClick < 500) {
+      console.log("Quick click detected, toggling mode");
+      toggleMode();
+    }
+    
+    setLastClick(now);
+    
+    // Reset the flag after a short delay
+    setTimeout(() => {
+      window.__transformControlsActive = false;
+    }, 100);
+  };
+  
+  const toggleMode = useCallback(() => {
+    if (!transformControlsRef.current) return;
+    
+    const modes = ['translate', 'rotate', 'scale'];
+    const currentIndex = modes.indexOf(transformMode || 'translate');
+    const nextIndex = (currentIndex + 1) % modes.length;
+    const nextMode = modes[nextIndex] as 'translate' | 'rotate' | 'scale';
+    
+    console.log("Toggling from", transformMode, "to", nextMode);
+    setTransformMode(nextMode);
+  }, [transformMode, setTransformMode]);
+  
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'q') {
+        console.log("Keyboard shortcut: toggling transform mode");
+        toggleMode();
+      }
     };
     
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('dblclick', handleDoubleClick);
-    
-    return () => {
-      // Clean up
-      if (controls) {
-        controls.detach();
-        scene.remove(controls as unknown as THREE.Object3D);
-        controls.dispose();
-      }
-      
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('dblclick', handleDoubleClick);
-    };
-  }, [object, camera, gl.domElement, scene, cycleTransformMode, transformMode]);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [transformMode, toggleMode]);
   
-  // No need to return any JSX since we're manually adding to the scene
-  return null;
+  // Handle changes to object position/rotation/scale
+  const handleObjectChange = useCallback(() => {
+    if (!object) return;
+    
+    // Get the object's ID from userData or UUID
+    const id = object.userData?.id || object.uuid;
+    
+    // Update the stored object with new transform values
+    updateObject(id, {
+      position: [object.position.x, object.position.y, object.position.z],
+      rotation: [object.rotation.x, object.rotation.y, object.rotation.z],
+      scale: [object.scale.x, object.scale.y, object.scale.z]
+    });
+    
+    console.log(`Updated object ${id} in store with new transforms`);
+  }, [object, updateObject]);
+  
+  // Only render if we have a valid object in the scene
+  if (!object || !object.parent) {
+    console.warn("TransformControls: object is null or not in scene");
+    return null;
+  }
+  
+  // Don't render if the object isn't in the scene tree
+  if (!isObjectInScene) {
+    console.warn("TransformControls: object is not in the scene hierarchy");
+    return null;
+  }
+  
+  return (
+    <TransformControls
+      ref={transformControlsRef}
+      object={object}
+      mode={transformMode}
+      size={0.75}
+      onPointerDown={handlePointerDown}
+      onMouseUp={handleMouseUp}
+      onPointerUp={handleMouseUp}
+      onChange={handleObjectChange}
+    />
+  );
+}
+
+// Extend the Window interface to include our custom flag
+declare global {
+  interface Window {
+    __pendingObject?: THREE.Mesh | THREE.Group;
+    __transformControlsActive?: boolean;
+  }
 } 

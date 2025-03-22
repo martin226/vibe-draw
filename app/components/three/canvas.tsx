@@ -1,3 +1,5 @@
+"use client"
+
 import './App.css'
 import { Canvas } from '@react-three/fiber'
 import { Sky, GizmoHelper, GizmoViewport, Bvh } from '@react-three/drei'
@@ -9,6 +11,7 @@ import { useAppStore } from '@/store/appStore'
 import { useEffect, useRef } from 'react'
 import { Crosshair } from '@/components/three/Crosshair'
 import * as THREE from 'three'
+import { StoredObjects } from '@/components/three/StoredObjects'
 
 const FocusDetector = () => {
   const { setUIFocused } = useAppStore()
@@ -102,7 +105,7 @@ export default function ThreeJSCanvas({
           display: visible ? 'block' : 'none',
         }}
       >
-        <Perf position="top-left" />
+        {visible && <Perf position="top-left" />}
         <ambientLight intensity={Math.PI / 2} />
         <Sky 
           distance={450000} 
@@ -111,7 +114,7 @@ export default function ThreeJSCanvas({
           azimuth={0.25} 
           rayleigh={1} 
         />
-        <FirstPersonController />
+        {visible && <FirstPersonController />}
         <InfiniteGrid />
         <Bvh>
           <mesh position={[0, 2, 0]} userData={{ name: "Center Pole", isUserCreated: false }}>
@@ -120,16 +123,21 @@ export default function ThreeJSCanvas({
           </mesh>
           <ExampleCube />
           <ExampleGroup />
+          <StoredObjects />
         </Bvh>
         <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
           <GizmoViewport labelColor="black" />
         </GizmoHelper>
-        <MeshCreator />
+        {visible && <MeshCreator />}
       </Canvas>
       
-      <FocusDetector />
-      <MeshCreatorUI />
-      <Crosshair />
+      {visible && (
+        <>
+          <FocusDetector />
+          <MeshCreatorUI />
+          <Crosshair />
+        </>
+      )}
     </>
   )
 }

@@ -118,6 +118,7 @@
 	color: var(--color-text-0);
 }
 
+/* Remove CrosshairSelector styles */
 .question__button {
 	all: unset;
 	flex-shrink: 0;

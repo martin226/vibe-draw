@@ -1,39 +1,35 @@
-import { useState, useRef } from 'react'
-import { useThree, useFrame } from '@react-three/fiber'
+import { useState, useRef, useEffect } from 'react'
+import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Bvh } from '@react-three/drei'
 import { CodeEditor } from '@/components/three/CodeEditor'
-import { useAppStore } from '@/store/appStore'
+import { useAppStore, useObjectStore } from '@/store/appStore'
 import { CustomTransformControls } from '@/components/three/CustomTransformControls'
 import { ObjectHighlighter } from '@/components/three/ObjectHighlighter'
 
-// We no longer need the context as we're using Zustand for state management
 export function MeshCreatorUI() {
   const [isEditorOpen, setIsEditorOpen] = useState(false)
-  const { meshCount, incrementMeshCount, setUIFocused } = useAppStore()
+  const { setUIFocused } = useAppStore()
+  const { meshCount, addObject } = useObjectStore()
   
   const toggleEditor = () => {
     setIsEditorOpen(prev => !prev)
   }
 
   const handleAddMesh = (object: THREE.Mesh | THREE.Group) => {
-    // Update the mesh count using the Zustand store
-    incrementMeshCount()
-    
-    // Store the object in a global variable to pass to the Three.js component
-    window.__pendingObject = object;
-    
-    // Add custom properties to identify this as a user-created object
+    // Set properties
     object.userData.isUserCreated = true;
     object.userData.name = `User Object ${meshCount + 1}`;
     
-    // Display success message
+    // Add to store
+    addObject(object);
+    
+    // Show success message
     const successMessage = document.createElement('div')
     successMessage.className = 'mesh-success-message'
     successMessage.textContent = `Object added to scene! (Total: ${meshCount + 1})`
     document.body.appendChild(successMessage)
     
-    // Remove the message after 3 seconds
     setTimeout(() => {
       document.body.removeChild(successMessage)
     }, 3000)
@@ -41,7 +37,6 @@ export function MeshCreatorUI() {
 
   const handleUIClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Set UI focused state when interacting with UI
     setUIFocused(true);
   };
 
@@ -68,86 +63,121 @@ export function MeshCreatorUI() {
   )
 }
 
-declare global {
-  interface Window {
-    __pendingObject?: THREE.Mesh | THREE.Group;
-  }
-}
-
 export function MeshCreator() {
-  const { scene } = useThree()
-  const customObjects = useRef<(THREE.Mesh | THREE.Group)[]>([])
-  const { selectedObject, setSelectedObject } = useAppStore()
+  const { selectedObject, setSelectedObject } = useAppStore();
+  const [selectedInstance, setSelectedInstance] = useState<THREE.Object3D | null>(null);
+  const { scene } = useThree();
   
-  // Handler for when an object is selected via the ObjectHighlighter
+  // Find the actual instance of the selected object in the scene
+  useEffect(() => {
+    if (!selectedObject) {
+      setSelectedInstance(null);
+      return;
+    }
+    
+    // Try to find the object in the scene with the same ID
+    // Use both UUID and userData.id for matching
+    const selectedId = selectedObject.uuid;
+    const selectedUserDataId = selectedObject.userData?.id;
+    let foundObject: THREE.Object3D | null = null;
+    
+    console.log(`Looking for selected object: uuid=${selectedId}, userData.id=${selectedUserDataId}`);
+    
+    // Try first by ID, which is more reliable
+    if (selectedUserDataId) {
+      scene.traverse(object => {
+        if (object.userData?.id === selectedUserDataId) {
+          foundObject = object;
+        }
+      });
+    }
+    
+    // If not found by ID, try by UUID
+    if (!foundObject) {
+      scene.traverse(object => {
+        if (object.uuid === selectedId) {
+          foundObject = object;
+        }
+      });
+    }
+    
+    // Update the selected instance if found
+    if (foundObject) {
+      const objectName = (foundObject as THREE.Object3D).userData?.name || 'unnamed';
+      console.log(`Found object in scene: ${objectName}`);
+      setSelectedInstance(foundObject);
+    } else {
+      console.warn(`Object not found in scene, clearing selection`);
+      // Clear the selection if not found
+      setSelectedObject(null);
+    }
+  }, [selectedObject, scene, setSelectedObject]);
+  
   const handleObjectSelected = (object: THREE.Object3D | null) => {
-    // If passed null, clear the selection
+    console.log("Object selected/deselected:", object);
+    
     if (object === null) {
       setSelectedObject(null);
       return;
     }
     
-    // ONLY allow selection if the object is user-created (this is a double-check)
-    if (!object.userData?.isUserCreated) {
-      console.warn("Only user-created objects can be transformed");
+    // Look for a parent group first - this ensures we select the entire tree
+    // rather than individual components
+    let targetObject = object;
+    let found = false;
+    
+    // Traverse up the parent chain to find a user-created group
+    let currentObj = object;
+    while (currentObj.parent && !(currentObj.parent instanceof THREE.Scene)) {
+      if ((currentObj.parent.userData?.isUserCreated || currentObj.parent.userData?.isSerializedFromCode) &&
+          currentObj.parent instanceof THREE.Group) {
+        targetObject = currentObj.parent;
+        found = true;
+        console.log(`Using parent group for selection: ${targetObject.userData?.name || 'unnamed'}`);
+        break;
+      }
+      currentObj = currentObj.parent;
+    }
+    
+    // If we didn't find a suitable parent group, check if the clicked object is valid
+    if (!found) {
+      if (!(targetObject.userData?.isUserCreated || targetObject.userData?.isSerializedFromCode)) {
+        console.warn("Only user-created objects can be transformed");
+        return;
+      }
+    }
+    
+    // If clicking the already selected object, deselect it
+    const objectId = targetObject.userData?.id || targetObject.uuid;
+    const selectedObjectId = selectedObject?.userData?.id || selectedObject?.uuid;
+    
+    if (selectedObject && objectId === selectedObjectId) {
+      console.log("Clicked already selected object, deselecting");
+      setSelectedObject(null);
       return;
     }
     
-    // Give any unnamed object a default name
-    if (!object.userData.name) {
-      object.userData.name = `User Mesh`;
-    }
-    
-    // Set as selected object
-    setSelectedObject(object);
+    console.log(`Selecting object: id=${objectId}, type=${targetObject instanceof THREE.Group ? 'Group' : 'Mesh'}`);
+    setSelectedObject(targetObject);
   }
   
-  // Handler to deselect the current object
   const handleDeselect = () => {
     setSelectedObject(null)
   }
   
-  // Dynamic container for user-created objects
-  const DynamicMeshes = () => {
-    useFrame(() => {
-      if (window.__pendingObject) {
-        const object = window.__pendingObject
-        
-        // Ensure it's marked as user-created (double-check)
-        if (!object.userData) object.userData = {};
-        object.userData.isUserCreated = true;
-        
-        // Add the object to the scene
-        scene.add(object)
-        
-        // Store a reference to it for potential later use
-        customObjects.current.push(object)
-        
-        // Clear the global variable
-        window.__pendingObject = undefined
-      }
-    })
-    
-    return null
-  }
-  
   return (
     <>
-      {/* Wrap dynamic content with Bvh for optimized raycasting */}
       <Bvh>
-        <DynamicMeshes />
+        {/* The actual objects are now rendered by the StoredObjects component */}
       </Bvh>
       
-      {/* Object highlighting system - ONLY for user-created objects */}
       <ObjectHighlighter 
         onObjectSelected={handleObjectSelected}
-        excludeObjects={selectedObject ? [selectedObject] : []}
       />
       
-      {/* Transform controls for the selected object - ONLY THREE.JS OBJECTS HERE */}
-      {selectedObject && selectedObject.userData?.isUserCreated && (
+      {selectedInstance && selectedInstance.userData?.isUserCreated && (
         <CustomTransformControls 
-          object={selectedObject}
+          object={selectedInstance}
           onDeselect={handleDeselect}
         />
       )}
