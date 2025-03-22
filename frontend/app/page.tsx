@@ -8,7 +8,7 @@ import { APIKeyInput } from './components/APIKeyInput'
 import { PreviewShapeUtil } from './PreviewShape/PreviewShape'
 import { Model3DPreviewShapeUtil } from './PreviewShape/Model3DPreviewShape'
 import ThreeJSCanvas from './components/three/canvas'
-import { useState } from 'react'
+import { useTabStore } from './store/appStore'
 import TestAddCodeButton from './components/TestAddCodeButton'
 
 const Tldraw = dynamic(async () => (await import('@tldraw/tldraw')).Tldraw, {
@@ -72,7 +72,7 @@ const TabGroup = ({ activeTab, setActiveTab }: TabGroupProps) => {
 }
 
 export default function App() {
-	const [activeTab, setActiveTab] = useState<TabType>('tldraw')
+	const { activeTab, setActiveTab } = useTabStore()
 
 	return (
 		<>

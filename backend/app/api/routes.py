@@ -1,16 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Body
 from sse_starlette.sse import EventSourceResponse
-from app.api.models import ClaudePromptRequest, ClaudeResponse, StreamRequest, TaskResponse, TaskStatusResponse, GeminiImageResponse
+from app.api.models import ClaudeResponse, StreamRequest, TaskResponse, TaskStatusResponse, GeminiImageResponse
 from app.tasks.claude_tasks import ClaudePromptTask
 from app.tasks.gemini_tasks import GeminiPromptTask, GeminiImageGenerationTask
-from app.tasks.cerebras_tasks import CerebrasPromptTask
+from app.tasks.cerebras_tasks import get_cerebras_client
 from app.core.redis import redis_service
-from app.core.config import settings
 import json
 import uuid
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from celery.result import AsyncResult
+import re
 
 # Create the router
 router = APIRouter()
@@ -112,42 +112,17 @@ async def queue_task(type: str, request: StreamRequest):
                 task_id=task_id
             )
         else:
-            # Generate images with Gemini Imagen
+            # Generate images with Gemini's built-in image generation
             GeminiImageGenerationTask.apply_async(
                 args=[
                     task_id,
                     request.prompt,
-                    request.number_of_images,
-                    request.aspect_ratio,
-                    request.negative_prompt
                 ],
                 task_id=task_id
             )
     elif type == "extract_object":
         # TODO: Implement object extraction
         pass
-    elif type == "llama":
-        # Use Cerebras LLaMA implementation
-        CerebrasPromptTask.apply_async(
-            args=[
-                task_id,
-                """
-You are provided with a JavaScript snippet containing a Three.js scene. Extract only the main 3D object creation code, including relevant geometries, materials, meshes, and groups. Remove any scene setup, cameras, renderers, lighting, animation loops, event listeners, and controls.
-
-Return a clean JavaScript module or function that constructs and returns the main object as either a single THREE.Mesh or a THREE.Group. Include a final line explicitly returning this object.
-You are provided with a JavaScript snippet containing a Three.js scene. Extract only the main 3D object creation code, including relevant geometries, materials, meshes, and groups. Completely remove all unrelated elements such as the scene, renderer, camera, lighting, ground planes, animation loops, event listeners, orbit controls, and window resize handling.
-
-Present the resulting code directly, ending with a single statement explicitly returning only the main object (THREE.Mesh or THREE.Group) that was created.
-
-Do not wrap the code in a function or module. Do not import anything.
-                """ + request.prompt,
-                "",
-                request.max_tokens,
-                request.temperature,
-                request.additional_params
-            ],
-            task_id=task_id
-        )
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported task type: {type}")
     
@@ -204,3 +179,59 @@ async def subscribe_claude_events(task_id: str, request: Request):
     """Stream events from a Claude 3.7 task."""
     # Return an event source response
     return EventSourceResponse(event_generator(task_id, request))
+
+@router.post("/cerebras/parse")
+async def parse_code_with_cerebras(code: str = Body(..., media_type="text/plain")):
+    """Direct endpoint to parse code using Cerebras LLaMA model without SSE.
+    
+    Takes a plain text body containing the code to be parsed and returns the result directly.
+    """
+    # Initialize Cerebras client
+    client = await get_cerebras_client()
+    
+    # Prepare the message parameters
+    messages = [
+        {
+            "role": "system",
+            "content": ""
+        },
+        {
+            "role": "user",
+            "content": """You are provided with a JavaScript snippet containing a Three.js scene. Extract only the main 3D object creation code, including relevant geometries, materials, meshes, and groups. Completely remove all unrelated elements such as the scene, renderer, camera, lighting, ground planes, animation loops, event listeners, orbit controls, and window resize handling.
+
+Present the resulting code directly, ending with a single statement explicitly returning only the main object (THREE.Mesh or THREE.Group) that was created.
+
+Do not wrap the code in a function or module. Do not import anything.
+""" + code
+        }
+    ]
+    
+    # Send the request to Cerebras
+    response = await client.chat.completions.create(
+        model="llama3.3-70b",
+        messages=messages,
+        max_tokens=4096,
+        temperature=0.2,
+        top_p=1
+    )
+    
+    # Extract and clean the content
+    raw_content = response.choices[0].message.content
+    
+    # Find code blocks marked with ```javascript ... ```
+    code_blocks = re.findall(r'```(?:javascript)?(.*?)```', raw_content, re.DOTALL)
+    
+    # Use the first found code block, or fallback to the full content if no blocks found
+    content = code_blocks[0].strip() if code_blocks else raw_content
+    
+    # Return the parsed code directly
+    return {
+        "status": "success",
+        "content": content,
+        "model": response.model,
+        "usage": {
+            "input_tokens": getattr(response.usage, "prompt_tokens", 0),
+            "output_tokens": getattr(response.usage, "completion_tokens", 0),
+            "total_tokens": getattr(response.usage, "total_tokens", 0)
+        }
+    }

@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import os
 from io import BytesIO
 from google import genai
 from app.core.celery_app import celery_app
@@ -7,10 +8,15 @@ from app.core.config import settings
 from app.tasks.tasks import AsyncAITask, GenericPromptTask, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE
 from typing import Dict, Any, Optional, List, Union
 from google.genai import types
+from PIL import Image
 
 # Default model configuration for Gemini
 DEFAULT_MODEL = "gemini-2.0-flash-exp"
-DEFAULT_IMAGE_MODEL = "imagen-3.0-generate-002"
+DEFAULT_IMAGE_GEN_MODEL = "gemini-2.0-flash-exp-image-generation"
+
+# Create output directory for debug images
+DEBUG_IMAGE_DIR = "debug_images"
+os.makedirs(DEBUG_IMAGE_DIR, exist_ok=True)
 
 # Create Gemini client
 async def get_gemini_client():
@@ -102,71 +108,85 @@ class GeminiPromptTask(GenericPromptTask, AsyncGeminiTask):
         }
 
 class GeminiImageGenerationTask(AsyncGeminiTask):
-    """Task to generate images with Imagen."""
+    """Task to generate images with Gemini 2.0 Flash."""
     
-    async def execute(self, task_id: str, prompt: str, 
-                  number_of_images: int = 1,
-                  aspect_ratio: str = "1:1",
-                  negative_prompt: Optional[str] = None) -> Dict[str, Any]:
-        """Generate images based on prompt (async implementation)."""
+    async def execute(self, task_id: str, prompt: str) -> Dict[str, Any]:
+        """Generate images based on prompt using Gemini's built-in image generation."""
         client = await self.client
         
-        # Create config for image generation
-        config = types.GenerateImagesConfig(
-            number_of_images=number_of_images,
-            aspect_ratio=aspect_ratio
-        )
+        # Log the request for debugging
+        print(f"[DEBUG] Generating image with prompt: '{prompt}'")
         
-        # Add negative prompt if provided
-        if negative_prompt:
-            config.negative_prompt = negative_prompt
+        # Prepare config for image generation
+        config = types.GenerateContentConfig(
+            response_modalities=['Text', 'Image']
+        )
             
         try:
-            # Generate images
-            response = await client.aio.models.generate_images(
-                model=DEFAULT_IMAGE_MODEL,
-                prompt=prompt,
+            # Generate images using Gemini's multimodal response
+            response = await client.aio.models.generate_content(
+                model=DEFAULT_IMAGE_GEN_MODEL,
+                contents=prompt,
                 config=config
             )
             
-            # Process the response
+            # Process the response parts
             image_results = []
-            for idx, generated_image in enumerate(response.generated_images):
-                # Convert image to base64 for return
-                image_base64 = base64.b64encode(generated_image.image.image_bytes).decode('utf-8')
-                image_results.append({
-                    "image_id": f"{task_id}_{idx}",
-                    "image_base64": image_base64
-                })
+            text_results = []
+            
+            # Process each part of the response
+            for idx, part in enumerate(response.candidates[0].content.parts):
+                if part.text is not None:
+                    text_results.append(part.text)
+                    print(f"[DEBUG] Generated text: {part.text}")
+                elif part.inline_data is not None:
+                    # Save image to disk for debugging
+                    image_bytes = part.inline_data.data
+                    image_path = os.path.join(DEBUG_IMAGE_DIR, f"{task_id}_{idx}.jpg")
+                    
+                    # Save the image using PIL
+                    try:
+                        img = Image.open(BytesIO(image_bytes))
+                        img.save(image_path)
+                        print(f"[DEBUG] Saved image to {image_path}")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to save image: {str(e)}")
+                    
+                    # Convert image to base64 for return
+                    image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                    image_results.append({
+                        "image_id": f"{task_id}_{idx}",
+                        "image_base64": image_base64,
+                        "saved_path": image_path
+                    })
+                
+            # Log result summary
+            print(f"[DEBUG] Generated {len(image_results)} images and {len(text_results)} text blocks")
                 
             return {
                 "status": "success",
-                "model": DEFAULT_IMAGE_MODEL,
+                "model": DEFAULT_IMAGE_GEN_MODEL,
                 "images": image_results,
+                "text": "\n".join(text_results) if text_results else "",
                 "task_id": task_id
             }
             
         except Exception as e:
+            print(f"[ERROR] Image generation failed: {str(e)}")
             return {
                 "status": "error",
                 "error": str(e),
                 "task_id": task_id
             }
     
-    def run(self, task_id: str, prompt: str, 
-            number_of_images: int = 1,
-            aspect_ratio: str = "1:1",
-            negative_prompt: Optional[str] = None) -> Dict[str, Any]:
+    def run(self, task_id: str, prompt: str) -> Dict[str, Any]:
         """Non-async wrapper for Celery compatibility."""
         # Create and run the event loop to execute the async function
         loop = asyncio.get_event_loop()
         result = loop.run_until_complete(
             self.execute(
                 task_id=task_id,
-                prompt=prompt,
-                number_of_images=number_of_images,
-                aspect_ratio=aspect_ratio,
-                negative_prompt=negative_prompt
+                prompt=prompt
             )
         )
         return result

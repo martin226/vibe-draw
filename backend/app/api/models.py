@@ -25,6 +25,7 @@ class GeminiImageResponse(BaseModel):
     status: str = Field(..., description="Status of the response (success or error)")
     model: Optional[str] = Field(None, description="Model used for the response")
     images: Optional[List[Dict[str, str]]] = Field(None, description="List of generated images as base64")
+    text: Optional[str] = Field(None, description="Generated text accompanying the images")
     error: Optional[str] = Field(None, description="Error message if status is error")
     task_id: Optional[str] = Field(None, description="Task ID for tracking")
 

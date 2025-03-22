@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { vibe3DCode } from '@/lib/vibe3DCode'
+import { useObjectStore, useTabStore } from '@/store/appStore'
 import {
   BaseBoxShapeUtil,
   DefaultSpinner,
@@ -44,6 +45,8 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
   override component(shape: Model3DPreviewShape) {
     const isEditing = useIsEditing(shape.id)
     const toast = useToasts()
+    const { addObjectFromCode } = useObjectStore()
+    const { activeTab, setActiveTab } = useTabStore()
 
     // Prepare the HTML with the Three.js code embedded
     const htmlToUse = shape.props.threeJsCode
@@ -233,9 +236,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
           <Icon 
             icon="redo"
             onClick={async () => {
-              for (const selectedShape of shape.props.selectedShapes) {
-                this.editor.select(selectedShape);
-              }
+              this.editor.setSelectedShapes(shape.props.selectedShapes);
               this.editor.deleteShape(shape);
               await vibe3DCode(this.editor);
             }}
@@ -244,11 +245,35 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
            <Icon 
             icon="plus"
             onClick={async () => {
-              for (const selectedShape of shape.props.selectedShapes) {
-                this.editor.select(selectedShape);
+              const res = await fetch("http://localhost:8000/api/cerebras/parse", {
+                method: "POST",
+                body: shape.props.threeJsCode
+              });
+              const actualCode = await res.json();
+              console.log(actualCode);
+              
+              if (activeTab !== 'threejs') {
+                setActiveTab('threejs');
+                // Wait for tab switch to complete before adding object
+                setTimeout(() => {
+                  const result = addObjectFromCode(actualCode.content);
+                  if (!result) {
+                    toast.addToast({
+                      icon: 'warning-triangle',
+                      title: 'Failed to add object.',
+                    });
+                  }
+                }, 100); // Short delay to ensure tab context is ready
+              } else {
+                // Already on threejs tab, add object directly
+                const result = addObjectFromCode(actualCode.content);
+                if (!result) {
+                  toast.addToast({
+                    icon: 'warning-triangle',
+                    title: 'Failed to add object.',
+                  });
+                }
               }
-              this.editor.deleteShape(shape);
-              await vibe3DCode(this.editor);
             }}
             onPointerDown={(e) => e.stopPropagation()}
            />

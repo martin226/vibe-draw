@@ -86,6 +86,7 @@ export function MeshCreator() {
     // Try first by ID, which is more reliable
     if (selectedUserDataId) {
       scene.traverse(object => {
+        console.log(object, object.userData?.id, selectedUserDataId)
         if (object.userData?.id === selectedUserDataId) {
           foundObject = object;
         }

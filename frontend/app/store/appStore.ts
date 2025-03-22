@@ -68,6 +68,19 @@ export const useAppStore = create<AppUIState>((set) => ({
 }))
 
 // --------------------------------
+// Tab State Store
+// --------------------------------
+interface TabStoreState {
+  activeTab: 'tldraw' | 'threejs'
+  setActiveTab: (tab: 'tldraw' | 'threejs') => void
+}
+
+export const useTabStore = create<TabStoreState>((set) => ({
+  activeTab: 'tldraw',
+  setActiveTab: (tab) => set({ activeTab: tab }),
+}))
+
+// --------------------------------
 // Object Store (no longer persisted)
 // --------------------------------
 interface ObjectStoreState {
