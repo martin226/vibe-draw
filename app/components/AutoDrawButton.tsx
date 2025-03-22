@@ -11,27 +11,10 @@ export function AutoDrawButton() {
   const handleClick = useCallback(() => {
     setEnabled(prev => !prev)
   }, [])
-
-  // Get the API key from the input field
-  const getApiKey = useCallback(() => {
-    const input = document.getElementById('anthropic_key') as HTMLInputElement
-    return input?.value ?? ''
-  }, [])
   
   // Create a custom implementation for useAutoModel
   useEffect(() => {
     if (!enabled || !editor) return
-    
-    const apiKey = getApiKey()
-    if (!apiKey) {
-      addToast({
-        title: 'API Key Missing',
-        description: 'Please enter your Anthropic API key to use the auto 3D feature',
-        icon: 'cross',
-      })
-      setEnabled(false)
-      return
-    }
     
     // Create an array to store shape IDs and a ref for the timeout
     const drawingShapes: TLShapeId[] = []
@@ -67,7 +50,16 @@ export function AutoDrawButton() {
         })
         
         // Call the vibe3DCode function
-        await vibe3DCode(editor, apiKey)
+        try {
+            await vibe3DCode(editor)
+        } catch (e) {
+            console.error(e)
+            addToast({
+                icon: 'cross-2',
+                title: 'Something went wrong',
+                description: (e as Error).message.slice(0, 100),
+            })
+        }
         
         // Success toast
         addToast({
@@ -221,7 +213,7 @@ export function AutoDrawButton() {
         icon: 'cross',
       })
     }
-  }, [enabled, editor, getApiKey, addToast])
+  }, [enabled, editor, addToast])
 
   return (
     <button 
