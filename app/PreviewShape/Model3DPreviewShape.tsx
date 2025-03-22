@@ -236,6 +236,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
               for (const selectedShape of shape.props.selectedShapes) {
                 this.editor.select(selectedShape);
               }
+              this.editor.deleteShape(shape);
               await vibe3DCode(this.editor);
             }}
             onPointerDown={(e) => e.stopPropagation()}
