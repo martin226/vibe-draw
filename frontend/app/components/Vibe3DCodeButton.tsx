@@ -25,18 +25,18 @@ export function Vibe3DCodeButton() {
       onClick={handleClick}
       style={{ 
         background: 'linear-gradient(45deg, #7B5BD6, #1D8AC5, #17A673)',
+        boxShadow: "none",
         marginLeft: '8px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-        fontWeight: 'bold',
+        fontWeight: 400,
         color: 'white',
         display: 'flex',
         alignItems: 'center',
         gap: '6px',
-        padding: '0 14px',
+        padding: '6px 12px',
         borderRadius: '4px',
         border: 'none',
         cursor: 'pointer',
-        height: '36px',
+        fontSize: 18,
         transition: 'transform 0.1s, box-shadow 0.1s',
       }}
       onMouseEnter={(e) => {
@@ -48,7 +48,6 @@ export function Vibe3DCodeButton() {
         e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
       }}
     >
-      <span style={{ fontSize: '16px' }}>🧊</span>
       <span>Make 3D</span>
     </button>
   )
