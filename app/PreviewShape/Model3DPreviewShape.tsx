@@ -202,7 +202,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
         <div
           style={{
             position: 'absolute',
-            top: 0,
+            top: 15,
             right: -40,
             height: 40,
             width: 40,
@@ -232,6 +232,17 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
           />
           <Icon 
             icon="redo"
+            onClick={async () => {
+              for (const selectedShape of shape.props.selectedShapes) {
+                this.editor.select(selectedShape);
+              }
+              this.editor.deleteShape(shape);
+              await vibe3DCode(this.editor);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+           />
+           <Icon 
+            icon="plus"
             onClick={async () => {
               for (const selectedShape of shape.props.selectedShapes) {
                 this.editor.select(selectedShape);
