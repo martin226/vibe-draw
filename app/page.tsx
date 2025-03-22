@@ -7,6 +7,7 @@ import { APIKeyInput } from './components/APIKeyInput'
 import { PreviewShapeUtil } from './PreviewShape/PreviewShape'
 import { Model3DPreviewShapeUtil } from './PreviewShape/Model3DPreviewShape'
 import ThreeJSCanvas from './components/three/canvas'
+import { useState } from 'react'
 
 const Tldraw = dynamic(async () => (await import('@tldraw/tldraw')).Tldraw, {
 	ssr: false,
@@ -14,21 +15,89 @@ const Tldraw = dynamic(async () => (await import('@tldraw/tldraw')).Tldraw, {
 
 const shapeUtils = [PreviewShapeUtil, Model3DPreviewShapeUtil]
 
-export default function App() {
+type TabType = 'tldraw' | 'threejs'
+
+interface TabGroupProps {
+	activeTab: TabType;
+	setActiveTab: (tab: TabType) => void;
+}
+
+const TabGroup = ({ activeTab, setActiveTab }: TabGroupProps) => {
 	return (
-		// <div className="editor">
-		// 	<Tldraw 
-		// 		persistenceKey="vibe-3d-code" 
-		// 		shareZone={
-		// 			<div style={{ display: 'flex' }}>
-		// 				<Vibe3DCodeButton />
-		// 			</div>
-		// 		} 
-		// 		shapeUtils={shapeUtils}
-		// 	>
-		// 		<APIKeyInput />
-		// 	</Tldraw>
-		// </div>
-		<ThreeJSCanvas />
+		<div style={{
+			position: 'fixed', 
+			top: '20px', 
+			left: '50%', 
+			transform: 'translateX(-50%)',
+			zIndex: 9999999, 
+			display: 'flex',
+			gap: '10px',
+			padding: '8px 16px',
+			borderRadius: '8px',
+			backgroundColor: 'white',
+			boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+		}}>
+			<button 
+				style={{
+					padding: '6px 12px', 
+					border: 'none', 
+					borderRadius: '4px',
+					backgroundColor: activeTab === 'tldraw' ? '#007bff' : '#f0f0f0', 
+					color: activeTab === 'tldraw' ? 'white' : 'black',
+					cursor: 'pointer',
+					transition: 'background-color 0.2s'
+				}}
+				onClick={() => setActiveTab('tldraw')}
+			>
+				2D Canvas
+			</button>
+			<button 
+				style={{
+					padding: '6px 12px', 
+					border: 'none', 
+					borderRadius: '4px',
+					backgroundColor: activeTab === 'threejs' ? '#007bff' : '#f0f0f0', 
+					color: activeTab === 'threejs' ? 'white' : 'black',
+					cursor: 'pointer',
+					transition: 'background-color 0.2s'
+				}}
+				onClick={() => setActiveTab('threejs')}
+			>
+				3D World
+			</button>
+		</div>
+	)
+}
+
+export default function App() {
+	const [activeTab, setActiveTab] = useState<TabType>('tldraw')
+
+	return (
+		<>
+			<TabGroup activeTab={activeTab} setActiveTab={setActiveTab} />
+			<div className="editor">
+				<div style={{ 
+					position: 'absolute', 
+					width: '100%', 
+					height: '100%', 
+					visibility: activeTab === 'tldraw' ? 'visible' : 'hidden',
+					zIndex: activeTab === 'tldraw' ? 2 : 1
+				}}>
+					<Tldraw 
+						persistenceKey="vibe-3d-code" 
+						shareZone={
+							<div style={{ display: 'flex' }}>
+								<Vibe3DCodeButton />
+							</div>
+						} 
+						shapeUtils={shapeUtils}
+					>
+						<APIKeyInput />
+					</Tldraw>
+				</div>
+				
+				<ThreeJSCanvas visible={activeTab === 'threejs'} />
+			</div>
+		</>
 	)
 }

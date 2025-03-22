@@ -90,11 +90,17 @@ function ExampleGroup() {
   )
 }
 
-export default function ThreeJSCanvas() {
+export default function ThreeJSCanvas({
+  visible = true
+}: {
+  visible?: boolean
+}) {
   return (
     <>
       <Canvas
-        className="w-full h-full"
+        style={{
+          display: visible ? 'block' : 'none',
+        }}
       >
         <Perf position="top-left" />
         <ambientLight intensity={Math.PI / 2} />
