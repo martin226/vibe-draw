@@ -7,7 +7,7 @@ import { Model3DPreviewShape } from '../PreviewShape/Model3DPreviewShape'
 
 export async function vibe3DCode(editor: Editor, apiKey: string) {
   // Get the selected shapes (we need at least one)
-  let selectedShapes = editor.getSelectedShapes()
+  const selectedShapes = editor.getSelectedShapes()
 
   if (selectedShapes.length === 0) throw Error('First select something to make real.')
 
@@ -22,8 +22,10 @@ export async function vibe3DCode(editor: Editor, apiKey: string) {
     props: { threeJsCode: '' },
   })
 
+  const selectedShapesWithoutModel3d = selectedShapes.filter((shape) => shape.type !== 'model3d')
+
   // Get an SVG based on the selected shapes
-  const svg = await editor.getSvg(selectedShapes, {
+  const svg = await editor.getSvg(selectedShapesWithoutModel3d, {
     scale: 1,
     background: true,
   })
@@ -31,12 +33,6 @@ export async function vibe3DCode(editor: Editor, apiKey: string) {
   if (!svg) {
     return
   }
-
-  // Add the grid lines to the SVG
-  const grid = { color: 'red', size: 100, labels: true }
-  addGridToSvg(svg, grid)
-
-  if (!svg) throw Error(`Could not get the SVG.`)
 
   // Turn the SVG into a DataUrl
   const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
@@ -59,7 +55,6 @@ export async function vibe3DCode(editor: Editor, apiKey: string) {
       apiKey,
       text: getSelectionAsText(editor),
       previousPreviews,
-      grid,
       theme: editor.user.getUserPreferences().isDarkMode ? 'dark' : 'light',
     })
 

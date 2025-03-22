@@ -3,7 +3,6 @@ export async function getModelFromAnthropic({
   image,
   apiKey,
   text,
-  grid,
   theme = 'light',
   previousPreviews = [],
 }: {
@@ -11,11 +10,6 @@ export async function getModelFromAnthropic({
   apiKey: string
   text: string
   theme?: string
-  grid?: {
-    color: string
-    size: number
-    labels: boolean
-  }
   previousPreviews?: Model3DPreviewShape[]
 }) {
   if (!apiKey) throw Error('You need to provide an API key (sorry)')
@@ -94,14 +88,20 @@ Return ONLY the JavaScript code that creates and animates the Three.js scene.`,
   }
 
   // Add the previous previews as reference
-  for (let i = 0; i < previousPreviews.length; i++) {
-    const preview = previousPreviews[i]
-    userContent.push(
-      {
-        type: 'text',
-        text: `Modify your previously generated Three.js code:\n${preview.props.threeJsCode}`,
-      }
-    )
+  // for (let i = 0; i < previousPreviews.length; i++) {
+  //   const preview = previousPreviews[i]
+  //   userContent.push(
+  //     {
+  //       type: 'text',
+  //       text: `Modify your previously generated Three.js code:\n${preview.props.threeJsCode}`,
+  //     }
+  //   )
+  // }
+  if (previousPreviews.length > 0) {
+    userContent.push({
+      type: 'text',
+      text: `Modify your previously generated Three.js code:\n${previousPreviews[0].props.threeJsCode}`,
+    })
   }
 
   const body: ClaudeCompletionRequest = {
