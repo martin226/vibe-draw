@@ -241,25 +241,6 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
             onPointerDown={(e) => e.stopPropagation()}
            />
         </div>
-        <div
-					style={{
-						position: 'absolute',
-						top: 40,
-						right: -40,
-						height: 40,
-						width: 40,
-						display: 'flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						cursor: 'pointer',
-						pointerEvents: 'all',
-					}}
-					onClick={() => {
-            // refetch the iframe content
-					}}
-				>
-					<Icon icon="redo" />
-				</div>
         {htmlToUse && (
           <div
             style={{
