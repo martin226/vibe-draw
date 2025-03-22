@@ -3,13 +3,11 @@ export async function getModelFromAnthropic({
   image,
   apiKey,
   text,
-  theme = 'light',
   previousPreviews = [],
 }: {
   image: string
   apiKey: string
   text: string
-  theme?: string
   previousPreviews?: Model3DPreviewShape[]
 }) {
   if (!apiKey) throw Error('You need to provide an API key (sorry)')
