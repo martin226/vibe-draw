@@ -49,7 +49,7 @@ export default function TestAddCodeButton({ activeTab, setActiveTab }: TestAddCo
 
 	return (
 		<>
-			<button
+			{/* <button
 				className="vibe3DCodeButton"
 				style={{
 					position: 'fixed',
@@ -67,7 +67,7 @@ export default function TestAddCodeButton({ activeTab, setActiveTab }: TestAddCo
 				onClick={handleAddCode}
 			>
 				Add Code
-			</button>
+			</button> */}
 			
 			{message && (
 				<div style={{

@@ -205,7 +205,7 @@ export default function ThreeJSCanvas({
             style={{
               position: 'absolute',
               bottom: '20px',
-              right: '20px',
+              left: '20px',
               padding: '8px 16px',
               background: '#4a5568',
               color: 'white',
