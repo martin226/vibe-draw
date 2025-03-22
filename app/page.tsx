@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import '@tldraw/tldraw/tldraw.css'
 import { Vibe3DCodeButton } from './components/Vibe3DCodeButton'
+import { AutoDrawButton } from './components/AutoDrawButton'
 import { APIKeyInput } from './components/APIKeyInput'
 import { PreviewShapeUtil } from './PreviewShape/PreviewShape'
 import { Model3DPreviewShapeUtil } from './PreviewShape/Model3DPreviewShape'
@@ -88,6 +89,7 @@ export default function App() {
 						shareZone={
 							<div style={{ display: 'flex' }}>
 								<Vibe3DCodeButton />
+								<AutoDrawButton />
 							</div>
 						} 
 						shapeUtils={shapeUtils}
