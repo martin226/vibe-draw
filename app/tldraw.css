@@ -22,7 +22,7 @@
 	/* Radius */
 	--radius-0: 2px;
 	--radius-1: 4px;
-	--radius-2: 6px;
+	--radius-2: 4px;
 	--radius-3: 9px;
 	--radius-4: 11px;
 	/* Z Index */
@@ -120,15 +120,15 @@
 	--color-panel-overlay: hsl(0, 0%, 100%, 82%);
 	--color-panel: hsl(0, 0%, 99%);
 	--color-focus: hsl(214, 100%, 29%);
-	--color-selected: hsl(214, 84%, 56%);
+	--color-selected: #007bff;
 	--color-selected-contrast: hsl(0, 0%, 100%);
 	--color-selection-fill: hsl(210, 100%, 56%, 24%);
-	--color-selection-stroke: hsl(214, 84%, 56%);
+	--color-selection-stroke: #007bff;
 	--color-text-0: hsl(0, 0%, 11%);
 	--color-text-1: hsl(0, 0%, 18%);
 	--color-text-3: hsl(220, 2%, 65%);
 	--color-text-shadow: hsl(0, 0%, 100%);
-	--color-primary: hsl(214, 84%, 56%);
+	--color-primary: #007bff;
 	--color-warn: hsl(0, 90%, 43%);
 	--color-text: hsl(0, 0%, 0%);
 	--color-laser: hsl(0, 100%, 50%);
@@ -1111,159 +1111,6 @@ input,
 	font-family: var(--tl-font-mono);
 }
 
-/* ------------------- Arrow Shape ------------------ */
-
-.tl-arrow-label {
-	position: absolute;
-	top: -1px;
-	left: -1px;
-	width: 2px;
-	height: 2px;
-	padding: 0px;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	color: var(--color-text);
-	text-shadow: var(--tl-text-outline);
-}
-
-.tl-arrow-label[data-isediting='true'] p {
-	opacity: 0;
-}
-
-.tl-arrow-label[data-isediting='true'] > .tl-arrow-label__inner {
-	background-color: var(--color-background);
-}
-
-.tl-arrow-label__inner {
-	border-radius: var(--radius-1);
-	box-sizing: content-box;
-	position: relative;
-	height: max-content;
-	width: max-content;
-	pointer-events: all;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-}
-
-.tl-arrow-label__inner p {
-	cursor: var(--tl-cursor-grab);
-}
-
-.tl-arrow-label p,
-.tl-arrow-label textarea {
-	margin: 0px;
-	padding: 0px;
-	border: 0px;
-	color: inherit;
-	caret-color: var(--color-text);
-	background: none;
-	border-image: none;
-	font-size: inherit;
-	font-family: inherit;
-	font-weight: inherit;
-	line-height: inherit;
-	font-variant: inherit;
-	font-style: inherit;
-	text-align: inherit;
-	letter-spacing: inherit;
-	text-shadow: inherit;
-	outline: none;
-	white-space: pre-wrap;
-	word-wrap: break-word;
-	overflow-wrap: break-word;
-	pointer-events: all;
-	text-rendering: auto;
-	text-transform: none;
-	text-indent: 0px;
-	display: inline-block;
-	appearance: auto;
-	column-count: initial !important;
-	writing-mode: horizontal-tb !important;
-	word-spacing: 0px;
-}
-
-.tl-arrow-label p {
-	position: relative;
-	height: max-content;
-	z-index: 2;
-	padding: 4px;
-	overflow: visible;
-}
-
-.tl-arrow-label textarea {
-	z-index: 3;
-	margin: 0px;
-	padding: 4px;
-	height: 100%;
-	width: 100%;
-	position: absolute;
-	resize: none;
-	border: 0px;
-	user-select: all;
-	-webkit-user-select: text;
-	caret-color: var(--color-text);
-	border-image: none;
-	/* Don't allow textarea to be zero width */
-	min-width: 4px;
-}
-
-/* -------------------- NoteShape ------------------- */
-
-.tl-note__container {
-	position: relative;
-	width: 100%;
-	height: 100%;
-	border-radius: var(--radius-2);
-	box-shadow: var(--shadow-1);
-	overflow: hidden;
-	border-color: currentColor;
-	border-style: solid;
-	border-width: 1px;
-}
-
-.tl-note__container .tl-text-label {
-	text-shadow: none;
-}
-
-.tl-note__scrim {
-	position: absolute;
-	z-index: 1;
-	top: 0px;
-	left: 0px;
-	width: 100%;
-	height: 100%;
-	background-color: var(--color-background);
-	opacity: 0.28;
-}
-
-.tl-loading {
-	background-color: var(--color-background);
-	color: var(--color-text-1);
-	height: 100%;
-	width: 100%;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	gap: var(--space-2);
-	font-size: 14px;
-	font-weight: 500;
-	opacity: 0;
-	animation: fade-in 0.2s ease-in-out forwards;
-	animation-delay: 0.2s;
-}
-
-@keyframes fade-in {
-	0% {
-		opacity: 0;
-	}
-	100% {
-		opacity: 1;
-	}
-}
-
 /* -------------------- FrameShape ------------------- */
 
 .tl-frame__body {
@@ -1588,6 +1435,7 @@ it from receiving any pointer events or affecting the cursor. */
 	text-rendering: optimizeLegibility;
 	font-size: 12px;
 	gap: 0px;
+	border-radius: 4px;
 	color: var(--color-text-1);
 }
 
@@ -1633,7 +1481,7 @@ it from receiving any pointer events or affecting the cursor. */
 @media (hover: hover) {
 	.tlui-button::after {
 		background-color: var(--color-muted-2);
-		opacity: 0;
+		opacity: 1;
 	}
 
 	.tlui-button:not(:disabled):hover::after {
@@ -1690,6 +1538,8 @@ it from receiving any pointer events or affecting the cursor. */
 	min-height: 40px;
 	min-width: 40px;
 	padding: 0px;
+	background: #f0f0f0;
+	border: none;
 }
 
 .tlui-button__icon-left {
@@ -1730,6 +1580,7 @@ it from receiving any pointer events or affecting the cursor. */
 	min-width: 128px;
 	width: 100%;
 	gap: 8px;
+	background: #f0f0f0;
 	margin: -4px 0px;
 }
 
@@ -3098,3 +2949,26 @@ it from receiving any pointer events or affecting the cursor. */
 	font-size: 12px;
 }
 
+body > div.editor > div:nth-child(1) > div > div.tlui-layout > div.tlui-layout__bottom > div.tlui-layout__bottom__main > div.tlui-toolbar > div > div > div.tlui-toolbar__tools > button:nth-child(5) {
+	display: none !important;
+}
+
+body > div.editor > div:nth-child(1) > div > div.tlui-layout > div.tlui-layout__bottom > div.tlui-layout__bottom__main > div.tlui-toolbar > div > div > div.tlui-toolbar__tools > button:nth-child(7) {
+	display: none !important;
+}
+
+#radix-\:r8\: > div > button:nth-child(20) {
+	display: none !important;
+}
+
+#radix-\:r8\: > div > button:nth-child(19) {
+	display: none !important;
+}
+
+#radix-\:r8\: > div > button:nth-child(12) {
+	display: none !important;
+}
+
+#radix-\:r8\: > div > button:nth-child(11) {
+	display: none !important;
+}

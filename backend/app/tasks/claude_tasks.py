@@ -23,7 +23,7 @@ class AsyncClaudeTask(AsyncAITask):
             self._client = await get_anthropic_client()
         return self._client
 
-class StreamClaudePromptTask(StreamPromptTask, AsyncClaudeTask):
+class ClaudePromptTask(StreamPromptTask, AsyncClaudeTask):
     """Task to stream a prompt with Claude 3.7."""
     
     def prepare_message_params(self, prompt: str, system_prompt: Optional[str] = None,
@@ -73,4 +73,4 @@ class StreamClaudePromptTask(StreamPromptTask, AsyncClaudeTask):
         }
 
 # Register the task properly with Celery
-StreamClaudePromptTask = celery_app.register_task(StreamClaudePromptTask())
+ClaudePromptTask = celery_app.register_task(ClaudePromptTask())

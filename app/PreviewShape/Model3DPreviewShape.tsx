@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
+import { vibe3DCode } from '@/lib/vibe3DCode'
 import {
   BaseBoxShapeUtil,
   DefaultSpinner,
@@ -6,6 +7,7 @@ import {
   Icon,
   SvgExportContext,
   TLBaseShape,
+  TLShape,
   toDomPrecision,
   useIsEditing,
   useToasts,
@@ -17,6 +19,7 @@ export type Model3DPreviewShape = TLBaseShape<
     threeJsCode: string
     w: number
     h: number
+    selectedShapes: TLShape[]
   }
 >
 
@@ -28,6 +31,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
       threeJsCode: '',
       w: (960 * 2) / 3,
       h: (540 * 2) / 3,
+      selectedShapes: [],
     }
   }
 
@@ -111,9 +115,9 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
 </head>
 <body>
     <div class="help-tooltip">
-        <p>🖱️ Left-click + drag: Rotate</p>
-        <p>🖱️ Right-click + drag: Pan</p>
-        <p>🖱️ Scroll: Zoom</p>
+        <p>Left-click + drag: Rotate</p>
+        <p>Right-click + drag: Pan</p>
+        <p>Scroll: Zoom</p>
     </div>
     <script type="module">
     import * as THREE from "https://esm.sh/three";
@@ -203,23 +207,39 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
             height: 40,
             width: 40,
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: 'column',
+            alignItems: 'left',
             justifyContent: 'center',
             cursor: 'pointer',
             pointerEvents: 'all',
+            paddingLeft: 5,
+            paddingTop: 5,
+            gap: 5
           }}
-          onClick={() => {
-            if (navigator && navigator.clipboard) {
-              navigator.clipboard.writeText(shape.props.threeJsCode)
-              toast.addToast({
-                icon: 'duplicate',
-                title: 'Model code copied to clipboard',
-              })
-            }
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
         >
-          <Icon icon="duplicate" />
+          <Icon
+            icon="duplicate"
+            onClick={() => {
+              if (navigator && navigator.clipboard) {
+                navigator.clipboard.writeText(shape.props.threeJsCode)
+                toast.addToast({
+                  icon: 'duplicate',
+                  title: 'Model code copied to clipboard',
+                })
+              }
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
+          <Icon 
+            icon="redo"
+            onClick={async () => {
+              for (const selectedShape of shape.props.selectedShapes) {
+                this.editor.select(selectedShape);
+              }
+              await vibe3DCode(this.editor);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+           />
         </div>
         <div
 					style={{

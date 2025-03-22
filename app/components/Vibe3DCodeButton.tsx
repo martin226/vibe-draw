@@ -8,10 +8,7 @@ export function Vibe3DCodeButton() {
 
   const handleClick = useCallback(async () => {
     try {
-      const input = document.getElementById('anthropic_key') as HTMLInputElement
-      const apiKey = input?.value ?? null
-      if (!apiKey) throw Error('Make sure the input includes your API Key!')
-      await vibe3DCode(editor, apiKey)
+      await vibe3DCode(editor)
     } catch (e) {
       console.error(e)
       addToast({

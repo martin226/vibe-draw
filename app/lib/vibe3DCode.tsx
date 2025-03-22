@@ -5,7 +5,11 @@ import { blobToBase64 } from './blobToBase64'
 // import { addGridToSvg } from './addGridToSvg'
 import { Model3DPreviewShape } from '../PreviewShape/Model3DPreviewShape'
 
-export async function vibe3DCode(editor: Editor, apiKey: string) {
+export async function vibe3DCode(editor: Editor) {
+  const input = document.getElementById('anthropic_key') as HTMLInputElement
+  const apiKey = input?.value ?? null
+  if (!apiKey) throw Error('Make sure the input includes your API Key!')
+
   // Get the selected shapes (we need at least one)
   const selectedShapes = editor.getSelectedShapes()
 
@@ -19,7 +23,7 @@ export async function vibe3DCode(editor: Editor, apiKey: string) {
     type: 'model3d',
     x: maxX + 60, // to the right of the selection
     y: midY - (540 * 2) / 3 / 2, // half the height of the preview's initial shape
-    props: { threeJsCode: '' },
+    props: { threeJsCode: '', selectedShapes: selectedShapes },
   })
 
   const selectedShapesWithoutModel3d = selectedShapes.filter((shape) => shape.type !== 'model3d')

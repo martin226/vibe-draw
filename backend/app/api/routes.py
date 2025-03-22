@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 from app.api.models import ClaudePromptRequest, ClaudeResponse, StreamRequest, TaskResponse, TaskStatusResponse
-from app.tasks.claude_tasks import StreamClaudePromptTask
+from app.tasks.claude_tasks import ClaudePromptTask
 from app.core.redis import redis_service
 from app.core.config import settings
 import json
@@ -39,7 +39,7 @@ async def get_task_result(task_id: str) -> Dict[str, Any]:
     else:
         return {"status": task_result.state.lower()}
 
-@router.get("/claude/task/{task_id}", response_model=TaskStatusResponse)
+@router.get("/task/{task_id}", response_model=TaskStatusResponse)
 async def get_task_status(task_id: str):
     """Get the status of an asynchronous Claude task."""
     result = await get_task_result(task_id)
@@ -52,24 +52,44 @@ async def get_task_status(task_id: str):
         result=ClaudeResponse(**result) if status == "completed" else None
     )
 
-@router.post("/claude/queue", response_model=TaskResponse)
-async def queue_claude(request: StreamRequest):
-    """Start a streaming request to Claude 3.7."""
+@router.post("/queue/{type}", response_model=TaskResponse)
+async def queue_task(type: str, request: StreamRequest):
+    """Start a task based on the specified type.
+    
+    Types:
+    - 3d: Uses Claude 3.7 for 3D generation
+    - 3d_magic: For 3D magic generation (unimplemented)
+    - image: For image generation (unimplemented)
+    - extract_object: For object extraction (unimplemented)
+    """
     # Generate a task ID if not provided
     task_id = request.task_id or str(uuid.uuid4())
     
-    # Start the streaming task
-    StreamClaudePromptTask.apply_async(
-        args=[
-            task_id,
-            request.prompt,
-            request.system_prompt,
-            request.max_tokens,
-            request.temperature,
-            request.additional_params
-        ],
-        task_id=task_id
-    )
+    # Handle different task types
+    if type == "3d":
+        # Use the existing Claude implementation
+        ClaudePromptTask.apply_async(
+            args=[
+                task_id,
+                request.prompt,
+                request.system_prompt,
+                request.max_tokens,
+                request.temperature,
+                request.additional_params
+            ],
+            task_id=task_id
+        )
+    elif type == "3d_magic":
+        # TODO: Implement 3D magic generation
+        pass
+    elif type == "image":
+        # TODO: Implement image generation
+        pass
+    elif type == "extract_object":
+        # TODO: Implement object extraction
+        pass
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported task type: {type}")
     
     # Return the task ID for SSE subscription
     return TaskResponse(task_id=task_id)
@@ -119,7 +139,7 @@ async def event_generator(task_id: str, request: Request):
         pubsub.unsubscribe(f"claude_stream:{task_id}")
         pubsub.close()
 
-@router.get("/claude/subscribe/{task_id}")
+@router.get("/subscribe/{task_id}")
 async def subscribe_claude_events(task_id: str, request: Request):
     """Stream events from a Claude 3.7 task."""
     # Return an event source response
