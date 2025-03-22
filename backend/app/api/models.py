@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Union
 import uuid
 
 class ClaudePromptRequest(BaseModel):
@@ -20,6 +20,14 @@ class ClaudeResponse(BaseModel):
     usage: Optional[Dict[str, int]] = Field(None, description="Token usage information")
     task_id: Optional[str] = Field(None, description="Task ID for tracking")
 
+class GeminiImageResponse(BaseModel):
+    """Response model for image generation tasks."""
+    status: str = Field(..., description="Status of the response (success or error)")
+    model: Optional[str] = Field(None, description="Model used for the response")
+    images: Optional[List[Dict[str, str]]] = Field(None, description="List of generated images as base64")
+    error: Optional[str] = Field(None, description="Error message if status is error")
+    task_id: Optional[str] = Field(None, description="Task ID for tracking")
+
 class StreamRequest(BaseModel):
     """Request model for streaming responses."""
     prompt: str = Field(..., description="The prompt to send to Claude")
@@ -28,6 +36,12 @@ class StreamRequest(BaseModel):
     temperature: Optional[float] = Field(0.7, description="Temperature for sampling")
     additional_params: Optional[Dict[str, Any]] = Field(None, description="Additional parameters for the Claude API")
     task_id: Optional[str] = Field(None, description="Custom task ID for tracking. If not provided, a UUID will be generated.")
+    # Image generation parameters
+    number_of_images: Optional[int] = Field(1, description="Number of images to generate (1-4)")
+    aspect_ratio: Optional[str] = Field("1:1", description="Aspect ratio for generated images (1:1, 16:9, 4:3, etc)")
+    negative_prompt: Optional[str] = Field(None, description="Negative prompt for image generation")
+    # Base64 encoded image for multi-modal inputs
+    image_base64: Optional[str] = Field(None, description="Base64 encoded image for multi-modal inputs")
 
 class TaskResponse(BaseModel):
     """Response model for task submission."""
@@ -39,4 +53,4 @@ class TaskStatusResponse(BaseModel):
     """Response model for task status."""
     task_id: str = Field(..., description="Task ID")
     status: str = Field(..., description="Status of the task (pending, completed, failed)")
-    result: Optional[ClaudeResponse] = Field(None, description="Result of the task if completed")
+    result: Optional[Union[ClaudeResponse, GeminiImageResponse]] = Field(None, description="Result of the task if completed")

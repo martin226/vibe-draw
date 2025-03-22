@@ -20,8 +20,11 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = Field(default=os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0"))
     CELERY_RESULT_BACKEND: str = Field(default=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"))
     
-    # Anthropic API key
+    # API keys
     ANTHROPIC_API_KEY: Optional[str] = Field(default=os.getenv("ANTHROPIC_API_KEY", None))
+    GOOGLE_API_KEY: Optional[str] = Field(default=os.getenv("GOOGLE_API_KEY", None))
+    CEREBRAS_API_KEY: Optional[str] = Field(default=os.getenv("CEREBRAS_API_KEY", None))
+
     
     class Config:
         env_file = ".env"

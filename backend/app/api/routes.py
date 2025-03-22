@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
-from app.api.models import ClaudePromptRequest, ClaudeResponse, StreamRequest, TaskResponse, TaskStatusResponse
+from app.api.models import ClaudePromptRequest, ClaudeResponse, StreamRequest, TaskResponse, TaskStatusResponse, GeminiImageResponse
 from app.tasks.claude_tasks import ClaudePromptTask
+from app.tasks.gemini_tasks import GeminiPromptTask, GeminiImageGenerationTask
+from app.tasks.cerebras_tasks import CerebrasPromptTask
 from app.core.redis import redis_service
 from app.core.config import settings
 import json
@@ -41,15 +43,25 @@ async def get_task_result(task_id: str) -> Dict[str, Any]:
 
 @router.get("/task/{task_id}", response_model=TaskStatusResponse)
 async def get_task_status(task_id: str):
-    """Get the status of an asynchronous Claude task."""
+    """Get the status of an asynchronous task."""
     result = await get_task_result(task_id)
     
     status = "completed" if result.get("status") not in ["pending", "failed"] else result.get("status")
     
+    # Determine response type based on result content
+    response_model = None
+    if status == "completed":
+        if "images" in result:
+            # It's an image generation response
+            response_model = GeminiImageResponse(**result)
+        else:
+            # It's a text generation response
+            response_model = ClaudeResponse(**result)
+    
     return TaskStatusResponse(
         task_id=task_id,
         status=status,
-        result=ClaudeResponse(**result) if status == "completed" else None
+        result=response_model
     )
 
 @router.post("/queue/{type}", response_model=TaskResponse)
@@ -59,8 +71,9 @@ async def queue_task(type: str, request: StreamRequest):
     Types:
     - 3d: Uses Claude 3.7 for 3D generation
     - 3d_magic: For 3D magic generation (unimplemented)
-    - image: For image generation (unimplemented)
+    - image: For image generation using Gemini Imagen
     - extract_object: For object extraction (unimplemented)
+    - llama: Uses Cerebras LLaMA model
     """
     # Generate a task ID if not provided
     task_id = request.task_id or str(uuid.uuid4())
@@ -83,11 +96,58 @@ async def queue_task(type: str, request: StreamRequest):
         # TODO: Implement 3D magic generation
         pass
     elif type == "image":
-        # TODO: Implement image generation
-        pass
+        # Check if we're generating images or processing an image with text
+        if request.image_base64:
+            # Process text + image with Gemini
+            GeminiPromptTask.apply_async(
+                args=[
+                    task_id,
+                    request.prompt,
+                    request.system_prompt,
+                    request.max_tokens,
+                    request.temperature,
+                    request.additional_params,
+                    request.image_base64
+                ],
+                task_id=task_id
+            )
+        else:
+            # Generate images with Gemini Imagen
+            GeminiImageGenerationTask.apply_async(
+                args=[
+                    task_id,
+                    request.prompt,
+                    request.number_of_images,
+                    request.aspect_ratio,
+                    request.negative_prompt
+                ],
+                task_id=task_id
+            )
     elif type == "extract_object":
         # TODO: Implement object extraction
         pass
+    elif type == "llama":
+        # Use Cerebras LLaMA implementation
+        CerebrasPromptTask.apply_async(
+            args=[
+                task_id,
+                """
+You are provided with a JavaScript snippet containing a Three.js scene. Extract only the main 3D object creation code, including relevant geometries, materials, meshes, and groups. Remove any scene setup, cameras, renderers, lighting, animation loops, event listeners, and controls.
+
+Return a clean JavaScript module or function that constructs and returns the main object as either a single THREE.Mesh or a THREE.Group. Include a final line explicitly returning this object.
+You are provided with a JavaScript snippet containing a Three.js scene. Extract only the main 3D object creation code, including relevant geometries, materials, meshes, and groups. Completely remove all unrelated elements such as the scene, renderer, camera, lighting, ground planes, animation loops, event listeners, orbit controls, and window resize handling.
+
+Present the resulting code directly, ending with a single statement explicitly returning only the main object (THREE.Mesh or THREE.Group) that was created.
+
+Do not wrap the code in a function or module. Do not import anything.
+                """ + request.prompt,
+                "",
+                request.max_tokens,
+                request.temperature,
+                request.additional_params
+            ],
+            task_id=task_id
+        )
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported task type: {type}")
     

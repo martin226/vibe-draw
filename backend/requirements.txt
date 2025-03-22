@@ -9,3 +9,5 @@ typing-extensions>=4.7.0
 pydantic>=2.10.0
 pydantic-settings
 asyncio>=3.4.3
+cerebras_cloud_sdk>=1.26.0
+google-genai>=1.7.0

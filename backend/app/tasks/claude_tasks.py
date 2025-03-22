@@ -2,7 +2,7 @@ import asyncio
 from anthropic import AsyncAnthropic
 from app.core.celery_app import celery_app
 from app.core.config import settings
-from app.tasks.tasks import AsyncAITask, StreamPromptTask, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE
+from app.tasks.tasks import AsyncAITask, GenericPromptTask, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE
 from typing import Dict, Any, Optional
 
 # Default model configuration for Claude
@@ -23,7 +23,7 @@ class AsyncClaudeTask(AsyncAITask):
             self._client = await get_anthropic_client()
         return self._client
 
-class ClaudePromptTask(StreamPromptTask, AsyncClaudeTask):
+class ClaudePromptTask(GenericPromptTask, AsyncClaudeTask):
     """Task to stream a prompt with Claude 3.7."""
     
     def prepare_message_params(self, prompt: str, system_prompt: Optional[str] = None,
