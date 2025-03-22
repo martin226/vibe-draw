@@ -1,13 +1,14 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import '@tldraw/tldraw/tldraw.css'
+import './tldraw.css'
 import { Vibe3DCodeButton } from './components/Vibe3DCodeButton'
 import { APIKeyInput } from './components/APIKeyInput'
 import { PreviewShapeUtil } from './PreviewShape/PreviewShape'
 import { Model3DPreviewShapeUtil } from './PreviewShape/Model3DPreviewShape'
 import ThreeJSCanvas from './components/three/canvas'
 import { useState } from 'react'
+import TestAddCodeButton from './components/TestAddCodeButton'
 
 const Tldraw = dynamic(async () => (await import('@tldraw/tldraw')).Tldraw, {
 	ssr: false,
@@ -98,6 +99,7 @@ export default function App() {
 				
 				<ThreeJSCanvas visible={activeTab === 'threejs'} />
 			</div>
+			<TestAddCodeButton activeTab={activeTab} setActiveTab={setActiveTab} />
 		</>
 	)
 }

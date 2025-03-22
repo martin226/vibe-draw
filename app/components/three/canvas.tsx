@@ -12,6 +12,8 @@ import { useEffect, useRef } from 'react'
 import { Crosshair } from '@/components/three/Crosshair'
 import * as THREE from 'three'
 import { StoredObjects } from '@/components/three/StoredObjects'
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js'
+import { useThree } from '@react-three/fiber'
 
 const FocusDetector = () => {
   const { setUIFocused } = useAppStore()
@@ -93,11 +95,71 @@ function ExampleGroup() {
   )
 }
 
+// Component to handle scene export
+function SceneExporter() {
+  const { scene } = useThree()
+  
+  // Store scene reference in a global variable for external access
+  useEffect(() => {
+    // @ts-ignore - We're adding a custom property to window
+    window.__threeScene = scene
+  }, [scene])
+  
+  return null
+}
+
 export default function ThreeJSCanvas({
   visible = true
 }: {
   visible?: boolean
 }) {
+  const exportScene = () => {
+    // @ts-ignore - Access the scene from the global variable
+    const scene = window.__threeScene
+    if (!scene) return
+
+    console.log('Original scene:', scene);
+    
+    // Create a temporary scene with only user-created objects
+    const exportScene = new THREE.Scene();
+    
+    // Clone only user-created objects
+    scene.traverse((object: THREE.Object3D) => {
+      if (object.userData && object.userData.isUserCreated === true) {
+        console.log('Found user object to export:', object.userData.name || 'Unnamed object');
+        const clonedObject = object.clone();
+        exportScene.add(clonedObject);
+      }
+    });
+    
+    // Check if we found any user objects
+    if (exportScene.children.length === 0) {
+      console.warn('No user-created objects found to export');
+      alert('No user-created objects found to export. Try creating some objects first.');
+      return;
+    }
+    
+    console.log('Export scene with filtered objects:', exportScene);
+    
+    const exporter = new GLTFExporter();
+    exporter.parse(
+      exportScene,
+      (gltf: any) => {
+        console.log('GLTF export successful:', gltf);
+        const blob = new Blob([JSON.stringify(gltf)], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'scene.gltf';
+        link.click();
+      },
+      (error: ErrorEvent) => {
+        console.error('An error happened during export:', error);
+        alert('Failed to export scene: ' + error.message);
+      },
+      { binary: false }
+    );
+  }
+  
   return (
     <>
       <Canvas
@@ -121,14 +183,15 @@ export default function ThreeJSCanvas({
             <cylinderGeometry args={[0.1, 0.1, 4]} />
             <meshStandardMaterial color="#888888" />
           </mesh>
-          <ExampleCube />
-          <ExampleGroup />
+          {/* <ExampleCube />
+          <ExampleGroup /> */}
           <StoredObjects />
         </Bvh>
         <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
           <GizmoViewport labelColor="black" />
         </GizmoHelper>
         {visible && <MeshCreator />}
+        {visible && <SceneExporter />}
       </Canvas>
       
       {visible && (
@@ -136,6 +199,25 @@ export default function ThreeJSCanvas({
           <FocusDetector />
           <MeshCreatorUI />
           <Crosshair />
+          {/* Button to export scene as gltf */}
+          <button 
+            onClick={exportScene}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              right: '20px',
+              padding: '8px 16px',
+              background: '#4a5568',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              zIndex: 100
+            }}
+          >
+            Export GLTF
+          </button>
+          
         </>
       )}
     </>

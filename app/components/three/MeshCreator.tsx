@@ -42,7 +42,7 @@ export function MeshCreatorUI() {
 
   return (
     <>
-      <div className="mesh-creator-button no-pointer-lock" onClick={(e) => {
+      {/* <div className="mesh-creator-button no-pointer-lock" onClick={(e) => {
         handleUIClick(e);
         toggleEditor();
       }}>
@@ -52,7 +52,7 @@ export function MeshCreatorUI() {
           <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
         <span>Create Object {meshCount > 0 ? `(${meshCount})` : ''}</span>
-      </div>
+      </div> */}
 
       <CodeEditor 
         isOpen={isEditorOpen} 
