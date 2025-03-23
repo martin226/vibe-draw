@@ -18,7 +18,7 @@ router = APIRouter()
 async def get_task_result(task_id: str) -> Dict[str, Any]:
     """Get the result of a task from Redis or Celery."""
     # Try to get the result from Redis
-    result_json = redis_service.get_value(f"claude_response:{task_id}")
+    result_json = redis_service.get_value(f"task_response:{task_id}")
     
     if result_json:
         # Parse the result from Redis
@@ -98,31 +98,22 @@ async def queue_task(type: str, request: StreamRequest):
     elif type == "image":
         # Check if we're generating images or processing an image with text
         if request.image_base64:
-            # Process text + image with Gemini
-            GeminiPromptTask.apply_async(
+            # Image is required for GeminiImageGenerationTask
+            GeminiImageGenerationTask.apply_async(
                 args=[
                     task_id,
+                    request.image_base64,
                     request.prompt,
                     request.system_prompt,
                     request.max_tokens,
                     request.temperature,
-                    request.additional_params,
-                    request.image_base64
+                    request.additional_params
                 ],
                 task_id=task_id
             )
         else:
-            # Generate images with Gemini's built-in image generation
-            GeminiImageGenerationTask.apply_async(
-                args=[
-                    task_id,
-                    request.prompt,
-                ],
-                task_id=task_id
-            )
-    elif type == "extract_object":
-        # TODO: Implement object extraction
-        pass
+            # Error - image is required
+            raise HTTPException(status_code=400, detail="Image base64 is required for image generation")
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported task type: {type}")
     
@@ -132,7 +123,7 @@ async def queue_task(type: str, request: StreamRequest):
 async def event_generator(task_id: str, request: Request):
     """Generate SSE events from Redis pub/sub."""
     # Subscribe to the Redis channel
-    pubsub = redis_service.subscribe(f"claude_stream:{task_id}")
+    pubsub = redis_service.subscribe(f"task_stream:{task_id}")
     
     try:
         # Check if the client is still connected
@@ -171,7 +162,7 @@ async def event_generator(task_id: str, request: Request):
         }
     finally:
         # Always unsubscribe from the channel
-        pubsub.unsubscribe(f"claude_stream:{task_id}")
+        pubsub.unsubscribe(f"task_stream:{task_id}")
         pubsub.close()
 
 @router.get("/subscribe/{task_id}")

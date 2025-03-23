@@ -54,11 +54,11 @@ class RedisService:
             "event": event_type,
             "data": data
         }
-        return self.publish(f"claude_stream:{task_id}", json.dumps(event))
+        return self.publish(f"task_stream:{task_id}", json.dumps(event))
         
     def store_response(self, task_id: str, response_data: Dict[str, Any], expiry: int = 3600) -> bool:
         """Store a response in Redis with expiry."""
-        key = f"claude_response:{task_id}"
+        key = f"task_response:{task_id}"
         return self.set_value(key, json.dumps(response_data), expiry)
         
     def publish_start_event(self, task_id: str) -> int:

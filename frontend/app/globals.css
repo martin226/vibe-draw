@@ -39,6 +39,22 @@
 	opacity: 0.95;
 }
 
+.improveDrawingButton {
+	background: var(--color-primary);
+	color: white;
+	border: none;
+	font: inherit;
+	font-weight: 600;
+	padding: var(--space-3) var(--space-4);
+	border-radius: var(--radius-2);
+	margin: var(--space-3);
+	cursor: pointer;
+	pointer-events: all;
+}
+.improveDrawingButton:hover {
+	opacity: 0.95;
+}
+
 /* ------------------ Api Key Input ----------------- */
 
 .your-own-api-key {
