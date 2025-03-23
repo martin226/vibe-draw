@@ -215,35 +215,57 @@ export function AutoDrawButton() {
     }
   }, [enabled, editor, addToast])
 
+  // Sync/refresh icon as an SVG
+  const SyncIcon = () => (
+    <svg 
+      width="16" 
+      height="16" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+      className={enabled ? "rotating" : ""}
+      style={{
+        animation: enabled ? 'rotate 2s linear infinite' : 'none'
+      }}
+    >
+      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
+    </svg>
+  )
+
   return (
     <button 
-      className="vibe3DCodeButton" 
+      className="autoDrawButton" 
       onClick={handleClick}
       style={{ 
-        background: enabled ? 'linear-gradient(45deg, #7B5BD6, #1D8AC5, #17A673)' : '#666',
-        boxShadow: "none",
-        marginLeft: '8px',
-        fontWeight: 400,
+        backgroundColor: enabled ? '#007bff' : '#6c757d',
         color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
+        marginLeft: '8px',
         padding: '6px 12px',
         borderRadius: '4px',
         border: 'none',
         cursor: 'pointer',
-        fontSize: 18,
-        transition: 'all 0.2s',
+        fontSize: '14px',
+        fontWeight: 500,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        transition: 'all 0.2s ease',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-1px)'
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)'
+        e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+        e.currentTarget.style.backgroundColor = enabled ? '#0069d9' : '#5a6268';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)'
+        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        e.currentTarget.style.backgroundColor = enabled ? '#007bff' : '#6c757d';
       }}
     >
+      <SyncIcon />
       <span>Auto 3D {enabled ? '(ON)' : '(OFF)'}</span>
     </button>
   )

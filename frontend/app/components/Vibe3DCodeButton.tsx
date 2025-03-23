@@ -47,35 +47,55 @@ export function Vibe3DCodeButton() {
     }
   }, [editor, addToast, is3DModelSelected])
 
+  // 3D cube icon as an SVG
+  const CubeIcon = () => (
+    <svg 
+      width="16" 
+      height="16" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    >
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+      <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+      <line x1="12" y1="22.08" x2="12" y2="12"/>
+    </svg>
+  )
+
   return (
     <button 
       className="vibe3DCodeButton" 
       onClick={handleClick}
       style={{ 
-        background: 'linear-gradient(45deg, #7B5BD6, #1D8AC5, #17A673)',
-        boxShadow: "none",
-        marginLeft: '8px',
-        fontWeight: 400,
+        backgroundColor: '#007bff',
         color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
+        marginLeft: '8px',
         padding: '6px 12px',
         borderRadius: '4px',
         border: 'none',
         cursor: 'pointer',
-        fontSize: 18,
-        transition: 'transform 0.1s, box-shadow 0.1s',
+        fontSize: '14px',
+        fontWeight: 500,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        transition: 'all 0.2s ease',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-1px)';
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
+        e.currentTarget.style.backgroundColor = '#0069d9';
+        e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+        e.currentTarget.style.backgroundColor = '#007bff';
+        e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
       }}
     >
+      <CubeIcon />
       <span>{is3DModelSelected ? 'Edit 3D' : 'Make 3D'}</span>
     </button>
   )

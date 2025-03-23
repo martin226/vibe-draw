@@ -90,8 +90,8 @@ export default function App() {
 						shareZone={
 							<div style={{ display: 'flex' }}>
 								<Vibe3DCodeButton />
-								<AutoDrawButton />
 								<ImproveDrawingButton />
+								<AutoDrawButton />
 							</div>
 						} 
 						shapeUtils={shapeUtils}
