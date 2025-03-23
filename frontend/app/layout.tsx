@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-	title: 'Vib3',
+	title: 'Vibe Draw',
 	description: 'draw a 3d model and make it real',
 	manifest: '/manifest.json',
 	icons: [
