@@ -72,35 +72,6 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
             width: 100% !important; 
             height: 100% !important;
         }
-        /* Control panel for interaction */
-        .controls-panel {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.7);
-            color: white;
-            border: none;
-            padding: 8px;
-            border-radius: 4px;
-            font-family: sans-serif;
-            z-index: 100;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .controls-panel button {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-family: sans-serif;
-            transition: background 0.2s;
-        }
-        .controls-panel button:hover {
-            background: rgba(255,255,255,0.3);
-        }
         /* Help tooltip */
         .help-tooltip {
             position: absolute;
@@ -116,7 +87,6 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
             pointer-events: none;
         }
     </style>
-    <script src="https://unpkg.com/html2canvas"></script>
 </head>
 <body>
     <div class="help-tooltip">
@@ -128,46 +98,12 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
     import * as THREE from "https://esm.sh/three";
     import { OrbitControls } from "https://esm.sh/three/examples/jsm/controls/OrbitControls.js";
     ${shape.props.threeJsCode}
-      // Setup message passing for screenshot
-      window.addEventListener('message', function(event) {
-          if (event.data.action === 'take-screenshot' && event.data.shapeid === "${shape.id}") {
-              html2canvas(document.body, {useCors: true}).then(function(canvas) {
-                  const data = canvas.toDataURL('image/png');
-                  window.parent.postMessage({screenshot: data, shapeid: "${shape.id}"}, "*");
-              });
-          }
-      }, false);
-
-      // Make the capture button work
-      document.getElementById('capture-button').addEventListener('click', function() {
-          html2canvas(document.body, {useCors: true}).then(function(canvas) {
-              const data = canvas.toDataURL('image/png');
-              const link = document.createElement('a');
-              link.download = '3d_model.png';
-              link.href = data;
-              link.click();
-          });
-      });
-
-      // Add control handlers
-      document.getElementById('toggle-animation-button').addEventListener('click', function() {
-          window.__animationEnabled = !window.__animationEnabled;
-      });
-      
-      // Reset view button
-      document.getElementById('reset-view-button').addEventListener('click', function() {
-          if (window.__modelControls) {
-              window.__modelControls.reset();
-          }
-      });
-
       // Prevent zooming issues
       document.body.addEventListener('wheel', e => { 
           if (!e.ctrlKey) return; 
           e.preventDefault(); 
           return 
       }, { passive: false });
-      
     </script>
 </body>
 </html>`

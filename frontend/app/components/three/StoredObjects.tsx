@@ -149,15 +149,18 @@ const createGroupFromStored = (data: StoredObject): THREE.Group => {
   if (data.children && data.children.length > 0) {
     console.log(`Creating ${data.children.length} children for group ${data.id}`);
     data.children.forEach(childData => {
-      let child: THREE.Object3D;
+      let child: THREE.Object3D | null = null;
       if (childData.type === 'mesh') {
         child = createMeshFromStored(childData);
       } else if (childData.type === 'group') {
         child = createGroupFromStored(childData);
-      } else {
-        return; // Skip unknown types
+      } else if (childData.type === 'object') {
+        child = createObject3DFromStored(childData);
       }
-      group.add(child);
+      
+      if (child) {
+        group.add(child);
+      }
     });
   }
   
@@ -177,6 +180,87 @@ const createGroupFromStored = (data: StoredObject): THREE.Group => {
   console.log(`Created group from storage: id=${data.id}, uuid=${group.uuid}, children: ${group.children.length}`);
   
   return group;
+};
+
+// Helper to create a generic Object3D from stored data
+const createObject3DFromStored = (data: StoredObject): THREE.Object3D => {
+  // Try to get the original object from global references
+  const originalObject = window.__objectReferences?.get(data.id) as THREE.Object3D;
+  
+  if (originalObject && !(originalObject instanceof THREE.Mesh) && 
+      !(originalObject instanceof THREE.Group)) {
+    console.log(`Found original object3D: ${data.id}`);
+    // We can reuse the entire original object
+    const obj = originalObject.clone();
+    
+    // Apply transforms from the stored data
+    if (data.position) obj.position.set(...data.position);
+    if (data.rotation) obj.rotation.set(...data.rotation);
+    if (data.scale) obj.scale.set(...data.scale);
+    
+    // Ensure userData is set correctly
+    obj.userData = { ...data.userData };
+    obj.userData.id = data.id;
+    
+    // Set the UUID to match the stored ID
+    try {
+      Object.defineProperty(obj, 'uuid', { value: data.id });
+    } catch (e) {
+      console.warn("Could not set UUID, selection might not work correctly", e);
+    }
+    
+    console.log(`Created object3D from original object: id=${data.id}, uuid=${obj.uuid}`);
+    return obj;
+  }
+  
+  // If we don't have the original object, create a new one
+  const obj = new THREE.Object3D();
+  
+  // Apply transforms
+  if (data.position) obj.position.set(...data.position);
+  if (data.rotation) obj.rotation.set(...data.rotation);
+  if (data.scale) obj.scale.set(...data.scale);
+  
+  // Restore userData
+  if (data.userData) {
+    obj.userData = { ...data.userData };
+  }
+  
+  // Add children
+  if (data.children && data.children.length > 0) {
+    console.log(`Creating ${data.children.length} children for object3D ${data.id}`);
+    data.children.forEach(childData => {
+      let child: THREE.Object3D | null = null;
+      if (childData.type === 'mesh') {
+        child = createMeshFromStored(childData);
+      } else if (childData.type === 'group') {
+        child = createGroupFromStored(childData);
+      } else if (childData.type === 'object') {
+        child = createObject3DFromStored(childData);
+      }
+      
+      if (child) {
+        obj.add(child);
+      }
+    });
+  }
+  
+  // Ensure these critical fields
+  obj.userData.id = data.id;
+  obj.userData.name = data.name;
+  obj.userData.isUserCreated = true;
+  obj.userData.isSerializedFromCode = true;
+  
+  // Try to use the stored ID as the UUID if possible
+  try {
+    Object.defineProperty(obj, 'uuid', { value: data.id });
+  } catch (e) {
+    console.warn("Could not set UUID, selection might not work correctly", e);
+  }
+  
+  console.log(`Created generic object3D from storage: id=${data.id}, uuid=${obj.uuid}`);
+  
+  return obj;
 };
 
 export function StoredObjects() {
@@ -211,6 +295,8 @@ export function StoredObjects() {
         return createMeshFromStored(obj);
       } else if (obj.type === 'group') {
         return createGroupFromStored(obj);
+      } else if (obj.type === 'object') {
+        return createObject3DFromStored(obj);
       }
       return null;
     }).filter(Boolean) as THREE.Object3D[];

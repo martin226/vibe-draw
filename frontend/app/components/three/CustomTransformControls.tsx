@@ -10,50 +10,60 @@ interface CustomTransformControlsProps {
 }
 
 export function CustomTransformControls({ object, onDeselect }: CustomTransformControlsProps) {
-  const { transformMode, setTransformMode } = useAppStore();
+  const { transformMode, setTransformMode, isDeleting } = useAppStore();
   const { updateObject } = useObjectStore();
   const transformControlsRef = useRef<any>(null);
   const [lastClick, setLastClick] = useState<number>(0);
   const { scene } = useThree();
   const [isObjectInScene, setIsObjectInScene] = useState(false);
+  const objectRef = useRef<THREE.Object3D | null>(null);
   const debug = process.env.NODE_ENV === 'development';
   
   // Raycaster setup for double-click detection
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   
-  // Validate if object is actually in the scene
+  // When object changes, update the ref to prevent stale closures
   useEffect(() => {
+    objectRef.current = object;
+  }, [object]);
+  
+  // Validate if object is actually in the scene - use a separate effect to prevent infinite loops
+  useEffect(() => {
+    // Skip if no object or if object is already stored in ref (to prevent loops)
     if (!object) {
       setIsObjectInScene(false);
       return;
     }
     
-    // Check if object is in the scene hierarchy
-    let isInScene = false;
-    const checkObject = (o: THREE.Object3D) => {
-      if (o === object) {
-        isInScene = true;
-        return;
+    // Check if object is in the scene hierarchy - only needed once when object changes
+    const checkObjectInScene = () => {
+      let isInScene = false;
+      
+      // First check direct parent relationship
+      if (object.parent) {
+        // Now trace up to make sure it connects to scene
+        let currentParent: THREE.Object3D | null = object.parent;
+        while (currentParent) {
+          if (currentParent === scene) {
+            isInScene = true;
+            break;
+          }
+          currentParent = currentParent.parent;
+        }
       }
       
-      for (const child of o.children) {
-        checkObject(child);
-        if (isInScene) break;
+      if (!isInScene) {
+        console.warn(`Selected object ${object.uuid} is not in scene, cannot attach controls`);
+        if (onDeselect) onDeselect();
+      } else {
+        setIsObjectInScene(true);
       }
     };
     
-    // Start checking from scene root
-    checkObject(scene);
-    
-    console.log(`Object ${object.uuid} is ${isInScene ? '' : 'NOT '} in scene`);
-    setIsObjectInScene(isInScene);
-    
-    if (!isInScene && object) {
-      console.warn(`Selected object ${object.uuid} is not in scene, cannot attach controls`);
-      if (onDeselect) onDeselect();
-    }
-  }, [object, scene, onDeselect]);
+    // Only check on mount or when object changes
+    checkObjectInScene();
+  }, [object, onDeselect, scene]);
   
   // Set a global flag to indicate that TransformControls is handling the event
   const handlePointerDown = (event: any) => {
@@ -124,31 +134,50 @@ export function CustomTransformControls({ object, onDeselect }: CustomTransformC
   
   // Handle changes to object position/rotation/scale
   const handleObjectChange = useCallback(() => {
-    if (!object) return;
+    const currentObject = objectRef.current;
+    if (!currentObject) return;
+    
+    // Skip updates during deletion
+    if (isDeleting) return;
     
     // Get the object's ID from userData or UUID
-    const id = object.userData?.id || object.uuid;
+    const id = currentObject.userData?.id || currentObject.uuid;
     
-    // Update the stored object with new transform values
+    // Debounce updates to avoid too many state changes
+    if (window.__lastTransformUpdate && Date.now() - window.__lastTransformUpdate < 50) {
+      return;
+    }
+    
+    window.__lastTransformUpdate = Date.now();
+    
+    // Update the stored object with new transform values 
     updateObject(id, {
-      position: [object.position.x, object.position.y, object.position.z],
-      rotation: [object.rotation.x, object.rotation.y, object.rotation.z],
-      scale: [object.scale.x, object.scale.y, object.scale.z]
+      position: [currentObject.position.x, currentObject.position.y, currentObject.position.z],
+      rotation: [currentObject.rotation.x, currentObject.rotation.y, currentObject.rotation.z],
+      scale: [currentObject.scale.x, currentObject.scale.y, currentObject.scale.z]
     });
     
     console.log(`Updated object ${id} in store with new transforms`);
-  }, [object, updateObject]);
+  }, [updateObject, isDeleting]);
   
   // Only render if we have a valid object in the scene
   if (!object || !object.parent) {
-    console.warn("TransformControls: object is null or not in scene");
     return null;
   }
   
   // Don't render if the object isn't in the scene tree
   if (!isObjectInScene) {
-    console.warn("TransformControls: object is not in the scene hierarchy");
     return null;
+  }
+  
+  // Don't render during deletion
+  if (isDeleting) {
+    return null;
+  }
+  
+  // Add the double click handler to the object for mode toggling
+  if (object && !object.userData.doubleClickHandler) {
+    object.userData.doubleClickHandler = toggleMode;
   }
   
   return (
@@ -170,5 +199,10 @@ declare global {
   interface Window {
     __pendingObject?: THREE.Mesh | THREE.Group;
     __transformControlsActive?: boolean;
+    __environmentSettings?: {
+      showOcean?: boolean;
+    };
+    __shiftKeyPressed?: boolean;
+    __lastTransformUpdate?: number;
   }
 } 

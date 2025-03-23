@@ -16,7 +16,7 @@ export type TransformMode = 'translate' | 'rotate' | 'scale';
 // Define a simplified object structure for storage
 export interface StoredObject {
   id: string;
-  type: 'mesh' | 'group';
+  type: 'mesh' | 'group' | 'object';
   name: string;
   position: [number, number, number];
   rotation: [number, number, number];
@@ -45,12 +45,14 @@ interface AppUIState {
   isCodeEditorOpen: boolean
   selectedObject: THREE.Object3D | null
   transformMode: TransformMode
+  isDeleting: boolean
   
   // Actions
   setUIFocused: (focused: boolean) => void
   setCodeEditorOpen: (open: boolean) => void
   setSelectedObject: (object: THREE.Object3D | null) => void
   setTransformMode: (mode: TransformMode) => void
+  setIsDeleting: (isDeleting: boolean) => void
 }
 
 export const useAppStore = create<AppUIState>((set) => ({
@@ -59,12 +61,18 @@ export const useAppStore = create<AppUIState>((set) => ({
   isCodeEditorOpen: false,
   selectedObject: null,
   transformMode: 'translate',
+  isDeleting: false,
   
   // Actions
   setUIFocused: (focused) => set({ isUIFocused: focused }),
   setCodeEditorOpen: (open) => set({ isCodeEditorOpen: open }),
-  setSelectedObject: (object) => set({ selectedObject: object }),
+  setSelectedObject: (object) => set((state) => {
+    // Prevent selection changes during deletion
+    if (state.isDeleting) return state;
+    return { selectedObject: object };
+  }),
   setTransformMode: (mode) => set({ transformMode: mode }),
+  setIsDeleting: (isDeleting) => set({ isDeleting })
 }))
 
 // --------------------------------
@@ -158,7 +166,7 @@ const threeObjectToStoredObject = (object: THREE.Object3D): StoredObject => {
     // Process children
     const children: StoredObject[] = [];
     object.children.forEach(child => {
-      if (child instanceof THREE.Mesh || child instanceof THREE.Group) {
+      if (child instanceof THREE.Object3D) {
         children.push(threeObjectToStoredObject(child));
       }
     });
@@ -175,8 +183,29 @@ const threeObjectToStoredObject = (object: THREE.Object3D): StoredObject => {
     };
   }
   
-  // Fallback for other object types
-  return { id, type: 'mesh', name, position, rotation, scale, userData: { ...object.userData } };
+  // Handle generic THREE.Object3D objects
+  console.log(`Storing generic object3D: ${id}`);
+  
+  // Process children if any
+  const children: StoredObject[] = [];
+  if (object.children.length > 0) {
+    object.children.forEach(child => {
+      if (child instanceof THREE.Object3D) {
+        children.push(threeObjectToStoredObject(child));
+      }
+    });
+  }
+  
+  return {
+    id,
+    type: 'object',
+    name,
+    position,
+    rotation,
+    scale,
+    userData: { ...object.userData },
+    children: children.length > 0 ? children : undefined
+  };
 };
 
 export const useObjectStore = create<ObjectStoreState>()((set, get) => ({
@@ -204,15 +233,30 @@ export const useObjectStore = create<ObjectStoreState>()((set, get) => ({
   },
   
   removeObject: (id: string) => {
-    const { selectedObject } = useAppStore.getState();
+    // Get current state
+    const appState = useAppStore.getState();
+    const { selectedObject, setSelectedObject } = appState;
     
+    // Update the objects array first
     set((state) => ({
       objects: state.objects.filter(obj => obj.id !== id),
     }));
     
-    // Also update the selected object if needed
-    if (selectedObject?.uuid === id) {
-      useAppStore.getState().setSelectedObject(null);
+    // If we're removing the selected object, clear the selection
+    // Use direct state setting instead of the setter function
+    if (selectedObject && (selectedObject.uuid === id || selectedObject.userData?.id === id)) {
+      // Use direct setState to avoid setter function which may have additional logic
+      useAppStore.setState({ selectedObject: null });
+      
+      // Wait a tick before clearing the deletion flag to ensure all updates have propagated
+      setTimeout(() => {
+        useAppStore.setState({ isDeleting: false });
+      }, 10);
+    } else {
+      // Not deleting the selected object, so just turn off deleting flag
+      setTimeout(() => {
+        useAppStore.setState({ isDeleting: false });
+      }, 10);
     }
   },
   
@@ -227,18 +271,29 @@ export const useObjectStore = create<ObjectStoreState>()((set, get) => ({
       const createObjectFunction = new Function('THREE', code);
       
       // Execute the function with THREE library as parameter
-      const object = createObjectFunction(THREE);
+      const object = createObjectFunction(THREE) as THREE.Object3D;
       
-      if (!(object instanceof THREE.Mesh) && !(object instanceof THREE.Group)) {
-        console.error('The code must return a THREE.Mesh or THREE.Group object');
+      // Check that the object is a valid THREE.Object3D type (Mesh, Group, or generic Object3D)
+      if (!(object instanceof THREE.Object3D)) {
+        console.log("object:", object);
+        console.error('The code must return a THREE.Object3D, THREE.Mesh, or THREE.Group object');
         return null;
+      }
+      
+      // Log the specific type for debugging
+      if (object instanceof THREE.Mesh) {
+        console.log('Adding Mesh from code');
+      } else if (object instanceof THREE.Group) {
+        console.log('Adding Group from code');
+      } else if (object instanceof THREE.Object3D) {
+        console.log('Adding generic Object3D from code');
       }
       
       // Set properties
       object.userData.isUserCreated = true;
       object.userData.name = `User Object ${get().meshCount + 1}`;
       
-      // Add to store
+      // Add to store - threeObjectToStoredObject will handle the specific type
       get().addObject(object);
       
       return object;

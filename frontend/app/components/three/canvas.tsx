@@ -6,14 +6,15 @@ import { Sky, GizmoHelper, GizmoViewport, Bvh } from '@react-three/drei'
 import { InfiniteGrid } from '@/components/three/InfiniteGrid'
 import { FirstPersonController } from '@/components/three/FirstPersonController'
 import { Perf } from 'r3f-perf'
-import { MeshCreator, MeshCreatorUI } from '@/components/three/MeshCreator'
+import { MeshCreator } from '@/components/three/MeshCreator'
 import { useAppStore } from '@/store/appStore'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Crosshair } from '@/components/three/Crosshair'
 import * as THREE from 'three'
 import { StoredObjects } from '@/components/three/StoredObjects'
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js'
 import { useThree } from '@react-three/fiber'
+import { Ocean } from '@/components/three/Ocean'
 
 const FocusDetector = () => {
   const { setUIFocused } = useAppStore()
@@ -37,6 +38,37 @@ const FocusDetector = () => {
   }, [setUIFocused])
   
   return null
+}
+
+// Component to manage ocean visibility and grid visibility
+function OceanAndGridManager() {
+  const [showOcean, setShowOcean] = useState(false)
+  
+  useEffect(() => {
+    // Check for environment settings on each render
+    const checkSettings = () => {
+      // @ts-ignore - Accessing custom window property
+      const settings = window.__environmentSettings
+      if (settings && typeof settings.showOcean === 'boolean') {
+        setShowOcean(settings.showOcean)
+      }
+    }
+    
+    // Initial check
+    checkSettings()
+    
+    // Set up interval to check periodically for changes
+    const intervalId = setInterval(checkSettings, 500)
+    
+    return () => clearInterval(intervalId)
+  }, [])
+  
+  return (
+    <>
+      {/* Show Ocean only when enabled */}
+      {showOcean ? <Ocean /> : <InfiniteGrid />}
+    </>
+  )
 }
 
 function ExampleCube() {
@@ -166,6 +198,16 @@ export default function ThreeJSCanvas({
         style={{
           display: visible ? 'block' : 'none',
         }}
+        gl={{
+          // Preserve the WebGL context to prevent it from being killed
+          // when there are too many WebGL instances
+          powerPreference: 'high-performance',
+          preserveDrawingBuffer: true,
+          // Keep the priority high for this WebGL context
+          antialias: true, 
+          // Attempt to make this context more important than others
+          failIfMajorPerformanceCaveat: false,
+        }}
       >
         {visible && <Perf position="top-left" />}
         <ambientLight intensity={Math.PI / 2} />
@@ -177,12 +219,9 @@ export default function ThreeJSCanvas({
           rayleigh={1} 
         />
         {visible && <FirstPersonController />}
-        <InfiniteGrid />
+        {visible && <OceanAndGridManager />}
         <Bvh>
-          <mesh position={[0, 2, 0]} userData={{ name: "Center Pole", isUserCreated: false }}>
-            <cylinderGeometry args={[0.1, 0.1, 4]} />
-            <meshStandardMaterial color="#888888" />
-          </mesh>
+          {/* Center pole removed */}
           {/* <ExampleCube />
           <ExampleGroup /> */}
           <StoredObjects />
@@ -197,7 +236,6 @@ export default function ThreeJSCanvas({
       {visible && (
         <>
           <FocusDetector />
-          <MeshCreatorUI />
           <Crosshair />
           {/* Button to export scene as gltf */}
           <button 
@@ -217,7 +255,6 @@ export default function ThreeJSCanvas({
           >
             Export GLTF
           </button>
-          
         </>
       )}
     </>

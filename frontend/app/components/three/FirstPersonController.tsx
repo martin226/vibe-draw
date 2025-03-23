@@ -24,13 +24,13 @@ export function FirstPersonController() {
   
   const { isUIFocused, isCodeEditorOpen } = useAppStore()
 
-  const { speed, sensitivity } = useControls('Movement', {
+  const { speed, sensitivity, showOcean } = useControls('Environment & Movement', {
     speed: {
       value: 10,
       min: 5,
       max: 30,
       step: 1,
-      label: 'Speed'
+      label: 'Movement Speed'
     },
     sensitivity: {
       value: 0.002,
@@ -38,8 +38,17 @@ export function FirstPersonController() {
       max: 0.01,
       step: 0.0005,
       label: 'Mouse Sensitivity'
+    },
+    showOcean: {
+      value: false,
+      label: 'Show Ocean'
     }
   })
+
+  useEffect(() => {
+    // @ts-ignore - Adding a custom property to window for global access
+    window.__environmentSettings = { showOcean }
+  }, [showOcean])
 
   const [movement, setMovement] = useState<MovementState>({
     forward: false,

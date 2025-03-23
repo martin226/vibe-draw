@@ -2,69 +2,12 @@ import { useState, useRef, useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Bvh } from '@react-three/drei'
-import { CodeEditor } from '@/components/three/CodeEditor'
-import { useAppStore, useObjectStore } from '@/store/appStore'
+import { useAppStore } from '@/store/appStore'
 import { CustomTransformControls } from '@/components/three/CustomTransformControls'
 import { ObjectHighlighter } from '@/components/three/ObjectHighlighter'
 
-export function MeshCreatorUI() {
-  const [isEditorOpen, setIsEditorOpen] = useState(false)
-  const { setUIFocused } = useAppStore()
-  const { meshCount, addObject } = useObjectStore()
-  
-  const toggleEditor = () => {
-    setIsEditorOpen(prev => !prev)
-  }
-
-  const handleAddMesh = (object: THREE.Mesh | THREE.Group) => {
-    // Set properties
-    object.userData.isUserCreated = true;
-    object.userData.name = `User Object ${meshCount + 1}`;
-    
-    // Add to store
-    addObject(object);
-    
-    // Show success message
-    const successMessage = document.createElement('div')
-    successMessage.className = 'mesh-success-message'
-    successMessage.textContent = `Object added to scene! (Total: ${meshCount + 1})`
-    document.body.appendChild(successMessage)
-    
-    setTimeout(() => {
-      document.body.removeChild(successMessage)
-    }, 3000)
-  }
-
-  const handleUIClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setUIFocused(true);
-  };
-
-  return (
-    <>
-      {/* <div className="mesh-creator-button no-pointer-lock" onClick={(e) => {
-        handleUIClick(e);
-        toggleEditor();
-      }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-        <span>Create Object {meshCount > 0 ? `(${meshCount})` : ''}</span>
-      </div> */}
-
-      <CodeEditor 
-        isOpen={isEditorOpen} 
-        onClose={() => setIsEditorOpen(false)}
-        onAddMesh={handleAddMesh}
-      />
-    </>
-  )
-}
-
 export function MeshCreator() {
-  const { selectedObject, setSelectedObject } = useAppStore();
+  const { selectedObject, setSelectedObject, isDeleting } = useAppStore();
   const [selectedInstance, setSelectedInstance] = useState<THREE.Object3D | null>(null);
   const { scene } = useThree();
   
@@ -72,6 +15,18 @@ export function MeshCreator() {
   useEffect(() => {
     if (!selectedObject) {
       setSelectedInstance(null);
+      return;
+    }
+    
+    // Skip the effect during deletion operations
+    if (isDeleting) {
+      return;
+    }
+    
+    // Skip the effect if we already have the right instance
+    if (selectedInstance && 
+        (selectedInstance.uuid === selectedObject.uuid || 
+         selectedInstance.userData?.id === selectedObject.userData?.id)) {
       return;
     }
     
@@ -86,7 +41,6 @@ export function MeshCreator() {
     // Try first by ID, which is more reliable
     if (selectedUserDataId) {
       scene.traverse(object => {
-        console.log(object, object.userData?.id, selectedUserDataId)
         if (object.userData?.id === selectedUserDataId) {
           foundObject = object;
         }
@@ -106,24 +60,101 @@ export function MeshCreator() {
     if (foundObject) {
       const objectName = (foundObject as THREE.Object3D).userData?.name || 'unnamed';
       console.log(`Found object in scene: ${objectName}`);
+      
+      // Check if the object is actually still in the scene hierarchy
+      let isInScene = false;
+      let currentParent: THREE.Object3D | null = (foundObject as THREE.Object3D).parent;
+      while (currentParent && !isInScene) {
+        if (currentParent === scene) {
+          isInScene = true;
+        }
+        currentParent = currentParent.parent;
+      }
+      
+      if (!isInScene) {
+        console.warn(`Object ${objectName} (${selectedId}) was found but not in scene hierarchy`);
+        // Clear the selection since object is not actually in scene
+        setSelectedObject(null);
+        setSelectedInstance(null);
+        return;
+      }
+      
+      // Ensure the object has the doubleClickHandler set
+      // Cast to THREE.Object3D to fix TypeScript error
+      const objWithProps = foundObject as THREE.Object3D & {
+        userData: { 
+          doubleClickHandler?: () => void,
+          [key: string]: any
+        }
+      };
+      
+      if (!objWithProps.userData.doubleClickHandler) {
+        objWithProps.userData.doubleClickHandler = () => {
+          const { transformMode, setTransformMode } = useAppStore.getState();
+          const modes = ['translate', 'rotate', 'scale'];
+          const currentIndex = modes.indexOf(transformMode || 'translate');
+          const nextIndex = (currentIndex + 1) % modes.length;
+          const nextMode = modes[nextIndex] as 'translate' | 'rotate' | 'scale';
+          setTransformMode(nextMode);
+        };
+      }
+      
       setSelectedInstance(foundObject);
     } else {
       console.warn(`Object not found in scene, clearing selection`);
       // Clear the selection if not found
       setSelectedObject(null);
+      setSelectedInstance(null);
     }
-  }, [selectedObject, scene, setSelectedObject]);
+  }, [selectedObject, scene, setSelectedObject, isDeleting]);
   
   const handleObjectSelected = (object: THREE.Object3D | null) => {
     console.log("Object selected/deselected:", object);
     
-    if (object === null) {
-      setSelectedObject(null);
+    // Skip selection changes during deletion
+    if (isDeleting) {
+      console.log("Skipping selection during deletion");
       return;
     }
     
-    // Look for a parent group first - this ensures we select the entire tree
-    // rather than individual components
+    if (object === null) {
+      // Only update if we actually have a selection to clear
+      if (selectedObject !== null) {
+        setSelectedObject(null);
+      }
+      return;
+    }
+    
+    // Check if the shift key is pressed - if so, we'll select one layer down from the object
+    // rather than traversing up to find a parent group
+    const isShiftKeyPressed = window.__shiftKeyPressed === true;
+    
+    if (isShiftKeyPressed) {
+      // When Shift key is pressed, we're looking for children one level down from the object
+      // This is handled in ObjectHighlighter, which will pass us the appropriate child
+      
+      console.log("Shift key pressed, selecting:", object.userData?.name || 'unnamed');
+      
+      if (object.userData?.isUserCreated || object.userData?.isSerializedFromCode) {
+        // If clicking the already selected object, deselect it
+        const objectId = object.userData?.id || object.uuid;
+        const selectedObjectId = selectedObject?.userData?.id || selectedObject?.uuid;
+        
+        if (selectedObject && objectId === selectedObjectId) {
+          console.log("Deselecting object");
+          setSelectedObject(null);
+          return;
+        }
+        
+        // Only set if it's a different object
+        if (!selectedObject || objectId !== selectedObjectId) {
+          setSelectedObject(object);
+        }
+      }
+      return;
+    }
+    
+    // Normal behavior - look for a parent group first
     let targetObject = object;
     let found = false;
     
@@ -159,7 +190,10 @@ export function MeshCreator() {
     }
     
     console.log(`Selecting object: id=${objectId}, type=${targetObject instanceof THREE.Group ? 'Group' : 'Mesh'}`);
-    setSelectedObject(targetObject);
+    // Only set if it's different to avoid unnecessary updates
+    if (!selectedObject || objectId !== selectedObjectId) {
+      setSelectedObject(targetObject);
+    }
   }
   
   const handleDeselect = () => {
@@ -176,7 +210,8 @@ export function MeshCreator() {
         onObjectSelected={handleObjectSelected}
       />
       
-      {selectedInstance && selectedInstance.userData?.isUserCreated && (
+      {selectedInstance && 
+        (selectedInstance.userData?.isUserCreated || selectedInstance.userData?.isSerializedFromCode) && (
         <CustomTransformControls 
           object={selectedInstance}
           onDeselect={handleDeselect}
