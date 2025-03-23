@@ -89,8 +89,8 @@ export default function App() {
 						persistenceKey="vibe-3d-code" 
 						shareZone={
 							<div style={{ display: 'flex' }}>
-								<ImproveDrawingButton />
 								<Vibe3DCodeButton />
+								<ImproveDrawingButton />
 								<AutoDrawButton />
 							</div>
 						} 
