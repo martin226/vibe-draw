@@ -15,6 +15,7 @@ import { StoredObjects } from '@/components/three/StoredObjects'
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js'
 import { useThree } from '@react-three/fiber'
 import { Ocean } from '@/components/three/Ocean'
+import { useObjectStore } from '@/store/appStore'
 
 const FocusDetector = () => {
   const { setUIFocused } = useAppStore()
@@ -192,6 +193,33 @@ export default function ThreeJSCanvas({
     );
   }
   
+  // Function to test importing a GLTF model
+  const testGltfImport = async () => {
+    try {
+      const { addObjectWithGltf } = useObjectStore.getState();
+      // Example GLTF files from the public glTF samples repository
+      const sampleModels = [
+        'https://img.theapi.app/temp/cd0b9c83-b5e3-4445-8007-b0e4c29d0d9b.glb'
+      ];
+      
+      // Select a random model from the samples
+      const randomUrl = sampleModels[Math.floor(Math.random() * sampleModels.length)];
+      console.log('Loading GLTF model from:', randomUrl);
+      
+      const result = await addObjectWithGltf(randomUrl);
+      
+      if (result) {
+        console.log('GLTF import successful:', result);
+      } else {
+        console.error('GLTF import failed');
+        alert('Failed to import GLTF model');
+      }
+    } catch (error) {
+      console.error('Error testing GLTF import:', error);
+      alert('Error testing GLTF import: ' + (error as Error).message);
+    }
+  }
+  
   return (
     <>
       <Canvas
@@ -211,6 +239,14 @@ export default function ThreeJSCanvas({
       >
         {visible && <Perf position="top-left" />}
         <ambientLight intensity={Math.PI / 2} />
+        {/* Add directional light for better material rendering */}
+        <directionalLight 
+          position={[10, 10, 5]} 
+          intensity={Math.PI * 2} 
+          castShadow
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
+        />
         <Sky 
           distance={450000} 
           sunPosition={[0, 1, 0]} 
@@ -250,10 +286,31 @@ export default function ThreeJSCanvas({
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
+              fontWeight: 'bold',
               zIndex: 100
             }}
           >
-            Export GLTF
+            Export Scene
+          </button>
+          
+          {/* Test button for GLTF import */}
+          <button 
+            onClick={testGltfImport}
+            style={{
+              position: 'absolute',
+              bottom: '20px',
+              left: '150px',
+              padding: '8px 16px',
+              background: '#38a169',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              zIndex: 100
+            }}
+          >
+            Test GLTF Import
           </button>
         </>
       )}

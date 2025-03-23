@@ -189,6 +189,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
                 });
                 const actualCode = await res.json();
                 console.log(actualCode);
+                shape.props.objectCode = actualCode.content;
                 this.editor.updateShape<Model3DPreviewShape>({
                   id: shape.id,
                   type: 'model3d',
