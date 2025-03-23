@@ -237,7 +237,7 @@ export default function ThreeJSCanvas({
           failIfMajorPerformanceCaveat: false,
         }}
       >
-        {visible && <Perf position="top-left" />}
+        {/* {visible && <Perf position="top-left" />} */}
         <ambientLight intensity={Math.PI / 2} />
         {/* Add directional light for better material rendering */}
         <directionalLight 

@@ -24,7 +24,7 @@ export function FirstPersonController() {
   
   const { isUIFocused, isCodeEditorOpen } = useAppStore()
 
-  const { speed, sensitivity, showOcean } = useControls('Environment & Movement', {
+  const { speed, sensitivity, showOcean } = useControls('Settings', {
     speed: {
       value: 10,
       min: 5,
