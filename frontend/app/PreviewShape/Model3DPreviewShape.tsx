@@ -13,6 +13,7 @@ import {
   useIsEditing,
   useToasts,
 } from '@tldraw/tldraw'
+import { useState, useEffect } from 'react'
 
 export type Model3DPreviewShape = TLBaseShape<
   'model3d',
@@ -49,6 +50,24 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
     const toast = useToasts()
     const { addObjectFromCode } = useObjectStore()
     const { activeTab, setActiveTab } = useTabStore()
+    const [isRegenerating, setIsRegenerating] = useState(false)
+    const [isEditingModel, setIsEditingModel] = useState(false)
+
+    // Listen for custom editing state change events
+    useEffect(() => {
+      const handleEditingStateChange = (event: Event) => {
+        const customEvent = event as CustomEvent;
+        if (customEvent.detail && customEvent.detail.elementId === shape.id) {
+          setIsEditingModel(customEvent.detail.isEditing);
+        }
+      };
+
+      window.addEventListener('model3d-editing-state-change', handleEditingStateChange);
+
+      return () => {
+        window.removeEventListener('model3d-editing-state-change', handleEditingStateChange);
+      };
+    }, [shape.id]);
 
     // Prepare the HTML with the Three.js code embedded
     const htmlToUse = shape.props.threeJsCode
@@ -112,19 +131,45 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
     return (
       <HTMLContainer className="tl-embed-container" id={shape.id}>
         {htmlToUse ? (
-          <iframe
-            id={`iframe-1-${shape.id}`}
-            srcDoc={htmlToUse}
-            width={toDomPrecision(shape.props.w)}
-            height={toDomPrecision(shape.props.h)}
-            draggable={false}
-            style={{
-              pointerEvents: isEditing ? 'auto' : 'none',
-              border: '1px solid var(--color-panel-contrast)',
-              borderRadius: 'var(--radius-2)',
-              backgroundColor: 'rgba(0,0,0,0.1)',
-            }}
-          />
+          <>
+            <iframe
+              id={`iframe-1-${shape.id}`}
+              srcDoc={htmlToUse}
+              width={toDomPrecision(shape.props.w)}
+              height={toDomPrecision(shape.props.h)}
+              draggable={false}
+              style={{
+                pointerEvents: isEditing ? 'auto' : 'none',
+                border: '1px solid var(--color-panel-contrast)',
+                borderRadius: 'var(--radius-2)',
+                backgroundColor: 'rgba(0,0,0,0.1)',
+              }}
+            />
+            {(isRegenerating || isEditingModel) && (
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  color: 'white',
+                  borderRadius: 'var(--radius-2)',
+                  zIndex: 100,
+                }}
+              >
+                <DefaultSpinner />
+                <div style={{ marginTop: 10, fontSize: 14 }}>
+                  {isRegenerating ? 'Regenerating 3D model...' : 'Editing 3D model...'}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <div
             style={{
@@ -183,19 +228,27 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
           <Icon 
             icon="redo"
             onTouchStart={async () => {
+              setIsRegenerating(true);
               this.editor.setSelectedShapes(shape.props.selectedShapes);
               await vibe3DCode(this.editor, shape.id);
+              setIsRegenerating(false);
+              // Exit editing mode after regenerating the 3D preview
+              this.editor.selectNone();
             }}
             onClick={async () => {
+              setIsRegenerating(true);
               this.editor.setSelectedShapes(shape.props.selectedShapes);
               await vibe3DCode(this.editor, shape.id);
+              setIsRegenerating(false);
+              // Exit editing mode after regenerating the 3D preview
+              this.editor.selectNone();
             }}
             onPointerDown={(e) => e.stopPropagation()}
            />
            <Icon 
             icon="plus"
             onTouchStart={async () => {
-              const res = await fetch("http://100.66.26.99:8000/api/cerebras/parse", {
+              const res = await fetch("http://localhost:8000/api/cerebras/parse", {
                 method: "POST",
                 body: shape.props.threeJsCode
               });
@@ -227,7 +280,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
               }
             }}
             onClick={async () => {
-              const res = await fetch("http://100.66.26.99:8000/api/cerebras/parse", {
+              const res = await fetch("http://localhost:8000/api/cerebras/parse", {
                 method: "POST",
                 body: shape.props.threeJsCode
               });
