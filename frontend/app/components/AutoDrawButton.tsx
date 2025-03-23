@@ -242,7 +242,7 @@ export function AutoDrawButton() {
       style={{ 
         backgroundColor: enabled ? '#007bff' : '#6c757d',
         color: 'white',
-        marginLeft: '8px',
+        marginLeft: '-3px',
         padding: '6px 12px',
         borderRadius: '4px',
         border: 'none',
@@ -252,7 +252,7 @@ export function AutoDrawButton() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '6px',
+        gap: '3px',
         transition: 'all 0.2s ease',
       }}
       onMouseEnter={(e) => {

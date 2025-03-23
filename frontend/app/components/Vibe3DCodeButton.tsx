@@ -97,7 +97,7 @@ export function Vibe3DCodeButton() {
       style={{ 
         backgroundColor: isProcessing ? '#66a6ff' : '#007bff',
         color: 'white',
-        marginLeft: '8px',
+        marginLeft: '-3px',
         padding: '6px 12px',
         borderRadius: '4px',
         border: 'none',
@@ -107,7 +107,7 @@ export function Vibe3DCodeButton() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '6px',
+        gap: '3px',
         transition: 'all 0.2s ease',
         opacity: isProcessing ? 0.8 : 1,
       }}

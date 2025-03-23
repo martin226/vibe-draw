@@ -33,8 +33,8 @@ const TabGroup = ({ activeTab, setActiveTab }: TabGroupProps) => {
 			transform: 'translateX(-50%)',
 			zIndex: 9999999, 
 			display: 'flex',
-			gap: '10px',
-			padding: '8px 16px',
+			gap: '6px',
+			padding: '6px',
 			borderRadius: '8px',
 			backgroundColor: 'white',
 			boxShadow: '0 4px 12px rgba(0,0,0,0.15)'

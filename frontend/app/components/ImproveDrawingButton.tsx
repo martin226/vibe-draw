@@ -79,7 +79,7 @@ export function ImproveDrawingButton() {
       style={{ 
         backgroundColor: isImproving ? '#9a86d5' : '#7B5BD6',
         color: 'white',
-        marginLeft: '8px',
+        marginLeft: '-3px',
         padding: '6px 12px',
         borderRadius: '4px',
         border: 'none',
@@ -89,7 +89,7 @@ export function ImproveDrawingButton() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '6px',
+        gap: '3px',
         transition: 'all 0.2s ease',
         opacity: isImproving ? 0.8 : 1,
       }}
