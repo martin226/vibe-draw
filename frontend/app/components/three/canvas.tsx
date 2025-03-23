@@ -308,7 +308,7 @@ export default function ThreeJSCanvas({
           </button>
           
           {/* Test button for GLTF import */}
-          <button 
+          {/* <button 
             onClick={testGltfImport}
             style={{
               position: 'absolute',
@@ -325,7 +325,7 @@ export default function ThreeJSCanvas({
             }}
           >
             Test GLTF Import
-          </button>
+          </button> */}
         </>
       )}
     </>

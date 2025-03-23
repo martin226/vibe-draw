@@ -1,5 +1,5 @@
 import { useEditor, useToasts } from '@tldraw/tldraw'
-import { useCallback, useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { vibe3DCode } from '../lib/vibe3DCode'
 import { edit3DCode } from '../lib/edit3DCode'
 import { Model3DPreviewShape } from '../PreviewShape/Model3DPreviewShape'
@@ -64,8 +64,7 @@ export function Vibe3DCodeButton() {
         });
       } else {
         // Otherwise, use vibe3DCode to create a new 3D model
-        // Pass the selected thinking mode boolean value
-        await vibe3DCode(editor, undefined, thinkingEnabled)
+        await vibe3DCode(editor, undefined, thinkingEnabled);
       }
     } catch (e) {
       console.error(e)
@@ -240,13 +239,13 @@ export function Vibe3DCodeButton() {
                   gap: '3px',
                 }}>
                   <BrainIcon />
-                  <span style={{ 
+                  {/* <span style={{ 
                     fontSize: '10px', 
                     opacity: 0.9,
                     fontWeight: thinkingEnabled ? 'bold' : 'normal',
                   }}>
                     AI
-                  </span>
+                  </span> */}
                 </div>
                 <ToggleSwitch 
                   enabled={thinkingEnabled}

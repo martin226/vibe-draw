@@ -1,7 +1,8 @@
-import { Editor, createShapeId, getSvgAsImage, TLShapeId, TLUnknownShape } from '@tldraw/tldraw'
+import { Editor, createShapeId, getSvgAsImage, TLShapeId } from '@tldraw/tldraw'
 import { getSelectionAsText } from './getSelectionAsText'
 import { blobToBase64 } from './blobToBase64'
 import { Model3DPreviewShape } from '../PreviewShape/Model3DPreviewShape'
+import { useObjectStore } from '../store/appStore'
 
 export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = null, thinkingMode: boolean = false) {
   // Get the selected shapes (we need at least one)
@@ -18,7 +19,11 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
       type: 'model3d',
       x: maxX + 60, // to the right of the selection
       y: midY - (540 * 2) / 3 / 2, // half the height of the preview's initial shape
-      props: { threeJsCode: '', selectedShapes: selectedShapes },
+      props: { 
+        threeJsCode: '', 
+        selectedShapes: selectedShapes,
+        gltfUrl: '' // Initialize gltfUrl property
+      },
     })
   }
 
@@ -46,95 +51,118 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
   // Get the text from the selection
   const selectionText = getSelectionAsText(editor)
 
-  if (thinkingMode) {
-    const response = await fetch('http://localhost:8000/api/trellis/task', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: "Qubico/trellis",
-        task_type: "image-to-3d",
-        input: {
-          image: dataUrl,
-          seed: 0,
-          ss_sampling_steps: 50,
-          slat_sampling_steps: 50,
-          ss_guidance_strength: 7.5,
-          slat_guidance_strength: 3,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw Error(`API error: ${errorData.detail || response.statusText}`)
-    }
-
-    const jsonResponse = await response.json()
-    
-    console.log("jsonResponse", jsonResponse)
-    
-    console.log("jsonResponse.data", jsonResponse.data)
-
-    const taskId = jsonResponse.data.task_id;
-
-    console.log("Task ID:", taskId)
-
-    // wait for websocket to send back the task result
-    const result = await waitForTaskResult(taskId);
-
-    console.log("Result:", result)
-
-    return;
-  }
-
   try {
-    // Send the image and text to the backend
-    const response = await fetch('http://localhost:8000/api/queue/3d', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: selectionText,
-        image_base64: dataUrl,
-      }),
-    })
+    if (thinkingMode) {
+      const response = await fetch('http://localhost:8000/api/trellis/task', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: "Qubico/trellis",
+          task_type: "image-to-3d",
+          input: {
+            image: dataUrl,
+            seed: 0,
+            ss_sampling_steps: 50,
+            slat_sampling_steps: 50,
+            ss_guidance_strength: 7.5,
+            slat_guidance_strength: 3,
+          },
+        }),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw Error(`API error: ${errorData.detail || response.statusText}`)
-    }
-
-    // Get the response with task ID
-    const jsonResponse = await response.json()
-    
-    // Now wait for the completed code via SSE
-    const generatedCodeData = await waitForCodeGeneration(jsonResponse.task_id)
-    
-    if (generatedCodeData && generatedCodeData.content) {
-      // Extract the Three.js code from the response
-      const threeJsCode = processThreeJsCode(generatedCodeData.content);
-      
-      // Make sure we have code
-      if (threeJsCode.length < 100) {
-        console.warn(generatedCodeData.content)
-        throw Error('Could not generate a 3D model from those wireframes.')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw Error(`API error: ${errorData.detail || response.statusText}`)
       }
 
-      // Update the shape with the new props
+      const jsonResponse = await response.json()
+      
+      console.log("jsonResponse", jsonResponse)
+      
+      console.log("jsonResponse.data", jsonResponse.data)
+
+      const taskId = jsonResponse.data.task_id;
+
+      console.log("Task ID:", taskId)
+
+      // wait for websocket to send back the task result
+      const gltfUrl = await waitForTaskResult(taskId);
+
+      console.log("GLTF URL received:", gltfUrl)
+
+      // Update the shape with the new props including the gltf URL
       editor.updateShape<Model3DPreviewShape>({
         id: shapeId,
         type: 'model3d',
         props: {
-          threeJsCode,
+          gltfUrl,
+          isGltf: true, // Add flag to indicate this is a GLTF model
         },
       })
 
-      console.log(`Response received from backend`)
+      /* 
+      // Automatic GLTF loading is now handled by the plus button instead
+      try {
+        // Since we can't use hooks directly in this file, we'll use a custom event
+        window.dispatchEvent(new CustomEvent('add-gltf-object', { 
+          detail: { url: gltfUrl, shapeId }
+        }));
+      } catch (error) {
+        console.error("Failed to add GLTF to 3D world:", error);
+      }
+      */
+
+      return;
     } else {
-      throw Error('No code was generated')
+      // Send the image and text to the backend
+      const response = await fetch('http://localhost:8000/api/queue/3d', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: selectionText,
+          image_base64: dataUrl,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw Error(`API error: ${errorData.detail || response.statusText}`)
+      }
+
+      // Get the response with task ID
+      const jsonResponse = await response.json()
+      
+      // Now wait for the completed code via SSE
+      const generatedCodeData = await waitForCodeGeneration(jsonResponse.task_id)
+      
+      if (generatedCodeData && generatedCodeData.content) {
+        // Extract the Three.js code from the response
+        const threeJsCode = processThreeJsCode(generatedCodeData.content);
+        
+        // Make sure we have code
+        if (threeJsCode.length < 100) {
+          console.warn(generatedCodeData.content)
+          throw Error('Could not generate a 3D model from those wireframes.')
+        }
+
+        // Update the shape with the new props
+        editor.updateShape<Model3DPreviewShape>({
+          id: shapeId,
+          type: 'model3d',
+          props: {
+            threeJsCode,
+            isGltf: false,
+          },
+        })
+
+        console.log(`Response received from backend`)
+      } else {
+        throw Error('No code was generated')
+      }
     }
   } catch (e) {
     // If anything went wrong, delete the shape
