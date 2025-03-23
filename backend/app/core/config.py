@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = Field(default=os.getenv("ANTHROPIC_API_KEY", None))
     GOOGLE_API_KEY: Optional[str] = Field(default=os.getenv("GOOGLE_API_KEY", None))
     CEREBRAS_API_KEY: Optional[str] = Field(default=os.getenv("CEREBRAS_API_KEY", None))
+    TRELLIS_API_KEY: Optional[str] = Field(default=os.getenv("TRELLIS_API_KEY", None))
 
     
     class Config:

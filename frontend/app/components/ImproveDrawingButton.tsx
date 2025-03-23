@@ -79,19 +79,18 @@ export function ImproveDrawingButton() {
       style={{ 
         backgroundColor: isImproving ? '#9a86d5' : '#7B5BD6',
         color: 'white',
-        marginLeft: '8px',
+        marginLeft: '-3px',
         padding: '6px 12px',
         borderRadius: '4px',
         border: 'none',
         cursor: isImproving ? 'not-allowed' : 'pointer',
-        fontSize: '14px',
-        fontWeight: 500,
+        fontSize: '18px',
+        fontWeight: 400,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: '6px',
+        gap: '3px',
         transition: 'all 0.2s ease',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         opacity: isImproving ? 0.8 : 1,
       }}
       onMouseEnter={(e) => {

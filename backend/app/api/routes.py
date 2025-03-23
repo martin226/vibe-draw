@@ -1,19 +1,29 @@
-from fastapi import APIRouter, HTTPException, Request, Body
+from fastapi import APIRouter, HTTPException, Request, Body, WebSocket, WebSocketDisconnect
 from sse_starlette.sse import EventSourceResponse
-from app.api.models import ClaudeResponse, StreamRequest, TaskResponse, TaskStatusResponse, GeminiImageResponse
+from app.api.models import (
+    ClaudeResponse, StreamRequest, TaskResponse, TaskStatusResponse, 
+    GeminiImageResponse, TrellisRequest, TrellisResponse
+)
 from app.tasks.claude_tasks import ClaudePromptTask, ClaudeEditTask
 from app.tasks.gemini_tasks import GeminiPromptTask, GeminiImageGenerationTask
 from app.tasks.cerebras_tasks import get_cerebras_client
 from app.core.redis import redis_service
+from app.core.config import settings
 import json
 import uuid
 import asyncio
 from typing import Dict, Any
 from celery.result import AsyncResult
 import re
+import httpx
+import os
+from fastapi import BackgroundTasks
 
 # Create the router
 router = APIRouter()
+
+# Trellis API URL
+TRELLIS_API_URL = "https://api.piapi.ai/api/v1/task"
 
 async def get_task_result(task_id: str) -> Dict[str, Any]:
     """Get the result of a task from Redis or Celery."""
@@ -251,3 +261,237 @@ Do not wrap the code in a function or module. Do not import anything.
             "total_tokens": getattr(response.usage, "total_tokens", 0)
         }
     }
+
+@router.post("/trellis/task", response_model=Dict[str, Any])
+async def create_trellis_task(request_data: TrellisRequest):
+    """Create a task in the Trellis API for image-to-3D generation.
+    
+    This endpoint accepts the same format as the Trellis API create-task endpoint
+    (https://piapi.ai/docs/trellis-api/create-task), but the API key is provided by the backend.
+    
+    Args:
+        request_data: The data to send to the Trellis API, matching their expected format.
+        
+    Returns:
+        Dict[str, Any]: The response from the Trellis API, which includes the job ID.
+    """
+    # Check if API key is available
+    if not settings.TRELLIS_API_KEY:
+        raise HTTPException(status_code=500, detail="Trellis API key not configured")
+        
+    # Set up the headers with our API key
+    headers = {
+        "x-api-key": settings.TRELLIS_API_KEY,
+        "Content-Type": "application/json"
+    }
+    
+    # Convert Pydantic model to dict for the request
+    request_dict = request_data.dict(exclude_none=True)
+    
+    # Make the request to the Trellis API
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(
+                TRELLIS_API_URL,
+                headers=headers,
+                json=request_dict,
+                timeout=30.0  # 30 second timeout
+            )
+            
+            # Check if the request was successful
+            response.raise_for_status()
+            
+            # Return the response from the Trellis API
+            return response.json()
+            
+        except httpx.HTTPStatusError as e:
+            # Handle HTTP errors
+            error_detail = f"Trellis API error: {e.response.status_code}"
+            try:
+                error_json = e.response.json()
+                if "detail" in error_json:
+                    error_detail = error_json["detail"]
+            except Exception:
+                pass
+            
+            raise HTTPException(status_code=e.response.status_code, detail=error_detail)
+            
+        except httpx.RequestError as e:
+            # Handle request errors (connection, timeout, etc.)
+            raise HTTPException(status_code=500, detail=f"Error connecting to Trellis API: {str(e)}")
+
+@router.websocket("/trellis/task/ws/{task_id}")
+async def trellis_task_status_websocket(websocket: WebSocket, task_id: str):
+    """WebSocket endpoint that polls the Trellis API for task status.
+    
+    Args:
+        websocket: The WebSocket connection
+        task_id: The ID of the task to poll
+        
+    Returns:
+        Streams the task status and result via WebSocket
+    """
+    # Check if API key is available
+    if not settings.TRELLIS_API_KEY:
+        await websocket.close(code=1008, reason="Trellis API key not configured")
+        return
+        
+    await websocket.accept()
+    
+    # Set up headers for Trellis API
+    headers = {
+        "x-api-key": settings.TRELLIS_API_KEY,
+        "Content-Type": "application/json"
+    }
+    
+    # Flag to control polling loop
+    continue_polling = True
+    
+    try:
+        # Start polling loop
+        while continue_polling:
+            try:
+                # Poll the Trellis API for task status
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        f"{TRELLIS_API_URL}/{task_id}",
+                        headers=headers,
+                        timeout=10.0
+                    )
+                    
+                    # If the request was successful, process the response
+                    if response.status_code == 200:
+                        response_data = response.json()
+                        
+                        # Extract the status from the response data
+                        # Based on PiAPI's common format, status will be in data.status
+                        status = "processing"  # Default status
+                        
+                        if "code" in response_data and response_data["code"] == 200:
+                            # Format matches the unified API response
+                            if "data" in response_data and "status" in response_data["data"]:
+                                status = response_data["data"]["status"]
+                        elif "status" in response_data:
+                            # Direct status field in response
+                            status = response_data["status"]
+                        
+                        # Map the status to our expected values
+                        # Trellis API likely uses "completed", "processing", "failed" etc.
+                        is_completed = status.lower() in ["completed", "succeeded", "done"]
+                        is_failed = status.lower() in ["failed", "error"]
+                        
+                        # If task is complete, send the full result
+                        if is_completed:
+                            model_data = None
+                            
+                            # Look for the 3D model data
+                            if "data" in response_data and "output" in response_data["data"]:
+                                output = response_data["data"]["output"]
+                                if "model_file" in output:
+                                    model_data = output["model_file"]
+                            elif "output" in response_data and "model_file" in response_data["output"]:
+                                model_data = response_data["output"]["model_file"]
+                            
+                            await websocket.send_json({
+                                "status": "completed",
+                                "message": "Task completed successfully",
+                                "data": model_data,
+                                "full_response": response_data
+                            })
+                            continue_polling = False
+                        elif is_failed:
+                            # Task failed, get error message
+                            error_message = "Task processing failed"
+                            
+                            # Look for error message in different possible locations
+                            if "data" in response_data and "error" in response_data["data"]:
+                                error_data = response_data["data"]["error"]
+                                if isinstance(error_data, dict) and "message" in error_data:
+                                    error_message = error_data["message"]
+                                elif isinstance(error_data, str):
+                                    error_message = error_data
+                            elif "error" in response_data:
+                                error_data = response_data["error"]
+                                if isinstance(error_data, dict) and "message" in error_data:
+                                    error_message = error_data["message"]
+                                elif isinstance(error_data, str):
+                                    error_message = error_data
+                            
+                            await websocket.send_json({
+                                "status": "failed",
+                                "message": error_message,
+                                "data": None,
+                                "full_response": response_data
+                            })
+                            continue_polling = False
+                        else:
+                            # Task is still processing
+                            await websocket.send_json({
+                                "status": "processing",
+                                "message": f"Task is {status.lower()}, waiting for completion",
+                                "data": None
+                            })
+                    else:
+                        # If there was an error retrieving the task
+                        error_message = f"Error retrieving task status: {response.status_code}"
+                        try:
+                            error_data = response.json()
+                            if "message" in error_data:
+                                error_message = error_data["message"]
+                        except Exception:
+                            pass
+                        
+                        await websocket.send_json({
+                            "status": "error",
+                            "message": error_message,
+                            "data": None
+                        })
+                
+                # Check for messages from the client
+                # Use wait_for with a timeout to make this non-blocking
+                try:
+                    # Wait for a message from the client with a timeout
+                    client_message = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
+                    
+                    # If the client sent "close", stop polling
+                    if client_message == "close":
+                        continue_polling = False
+                except asyncio.TimeoutError:
+                    # No message from client, continue polling
+                    pass
+                
+                # If we're still polling, wait 2 seconds before the next poll
+                if continue_polling:
+                    await asyncio.sleep(2)
+                
+            except httpx.RequestError as e:
+                # Handle request errors
+                await websocket.send_json({
+                    "status": "error",
+                    "message": f"Error connecting to Trellis API: {str(e)}",
+                    "data": None
+                })
+                # Wait before retrying
+                await asyncio.sleep(2)
+    
+    except WebSocketDisconnect:
+        # Client disconnected, exit the loop
+        continue_polling = False
+    except Exception as e:
+        # Handle unexpected errors
+        try:
+            await websocket.send_json({
+                "status": "error",
+                "message": f"Unexpected error: {str(e)}",
+                "data": None
+            })
+        except Exception:
+            # If we can't send the error, just exit
+            pass
+    finally:
+        # Ensure the WebSocket is closed when we're done
+        try:
+            await websocket.close()
+        except Exception:
+            # If the connection is already closed, ignore the error
+            pass
