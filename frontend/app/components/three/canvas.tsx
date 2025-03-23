@@ -247,12 +247,26 @@ export default function ThreeJSCanvas({
           shadow-mapSize-width={2048}
           shadow-mapSize-height={2048}
         />
+        {/* Add a secondary fill light from opposite direction */}
+        <directionalLight 
+          position={[-5, 5, -2]} 
+          intensity={Math.PI} 
+          color="#8088ff"
+        />
+        {/* Add a ground fill light for better overall illumination */}
+        <hemisphereLight
+          args={["#ffffff", "#8888ff", 0.7]} 
+          position={[0, 10, 0]}
+        />
         <Sky 
           distance={450000} 
-          sunPosition={[0, 1, 0]} 
-          inclination={0} 
-          azimuth={0.25} 
-          rayleigh={1} 
+          sunPosition={[5, 1, 2]} 
+          inclination={0.1} 
+          azimuth={0.5} 
+          rayleigh={0.5}
+          turbidity={10}
+          mieCoefficient={0.005}
+          mieDirectionalG={0.8}
         />
         {visible && <FirstPersonController />}
         {visible && <OceanAndGridManager />}
