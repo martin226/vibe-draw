@@ -323,7 +323,7 @@ export function FirstPersonController() {
         document.body.removeChild(rotationLabel)
       }
     }
-  }, [])
+  }, [camera.quaternion])
   
   useFrame((_, delta) => {
     direction.current.z = Number(movement.forward) - Number(movement.backward)
