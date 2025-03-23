@@ -1,3 +1,7 @@
+* {
+	touch-action: none;
+}
+
 .tlui-help-menu {
 	display: none !important;
 }

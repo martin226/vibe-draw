@@ -160,6 +160,15 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
         >
           <Icon
             icon="duplicate"
+            onTouchStart={() => {
+              if (navigator && navigator.clipboard) {
+                navigator.clipboard.writeText(shape.props.threeJsCode)
+                toast.addToast({
+                  icon: 'duplicate',
+                  title: 'Model code copied to clipboard',
+                })
+              }
+            }}
             onClick={() => {
               if (navigator && navigator.clipboard) {
                 navigator.clipboard.writeText(shape.props.threeJsCode)
@@ -173,6 +182,10 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
           />
           <Icon 
             icon="redo"
+            onTouchStart={async () => {
+              this.editor.setSelectedShapes(shape.props.selectedShapes);
+              await vibe3DCode(this.editor, shape.id);
+            }}
             onClick={async () => {
               this.editor.setSelectedShapes(shape.props.selectedShapes);
               await vibe3DCode(this.editor, shape.id);
@@ -181,29 +194,20 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
            />
            <Icon 
             icon="plus"
-            onClick={async () => {
-              if (!shape.props.objectCode) {
-                const res = await fetch("http://localhost:8000/api/cerebras/parse", {
-                  method: "POST",
-                  body: shape.props.threeJsCode
-                });
-                const actualCode = await res.json();
-                console.log(actualCode);
-                shape.props.objectCode = actualCode.content;
-                this.editor.updateShape<Model3DPreviewShape>({
-                  id: shape.id,
-                  type: 'model3d',
-                  props: {
-                    objectCode: actualCode.content,
-                  },
-                });
-              }
+            onTouchStart={async () => {
+              const res = await fetch("http://100.66.26.99:8000/api/cerebras/parse", {
+                method: "POST",
+                body: shape.props.threeJsCode
+              });
+              const actualCode = await res.json();
+              console.log(actualCode);
+              const objectCode = actualCode.content;
               
               if (activeTab !== 'threejs') {
                 setActiveTab('threejs');
                 // Wait for tab switch to complete before adding object
                 setTimeout(() => {
-                  const result = addObjectFromCode(shape.props.objectCode);
+                  const result = addObjectFromCode(objectCode);
                   if (!result) {
                     toast.addToast({
                       icon: 'warning-triangle',
@@ -213,7 +217,39 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
                 }, 100); // Short delay to ensure tab context is ready
               } else {
                 // Already on threejs tab, add object directly
-                const result = addObjectFromCode(shape.props.objectCode);
+                const result = addObjectFromCode(objectCode);
+                if (!result) {
+                  toast.addToast({
+                    icon: 'warning-triangle',
+                    title: 'Failed to add object.',
+                  });
+                }
+              }
+            }}
+            onClick={async () => {
+              const res = await fetch("http://100.66.26.99:8000/api/cerebras/parse", {
+                method: "POST",
+                body: shape.props.threeJsCode
+              });
+              const actualCode = await res.json();
+              console.log(actualCode);
+              const objectCode = actualCode.content;
+              
+              if (activeTab !== 'threejs') {
+                setActiveTab('threejs');
+                // Wait for tab switch to complete before adding object
+                setTimeout(() => {
+                  const result = addObjectFromCode(objectCode);
+                  if (!result) {
+                    toast.addToast({
+                      icon: 'warning-triangle',
+                      title: 'Failed to add object.',
+                    });
+                  }
+                }, 100); // Short delay to ensure tab context is ready
+              } else {
+                // Already on threejs tab, add object directly
+                const result = addObjectFromCode(objectCode);
                 if (!result) {
                   toast.addToast({
                     icon: 'warning-triangle',
