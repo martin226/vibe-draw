@@ -5,8 +5,15 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-	title: 'vibe 3d code',
+	title: 'Vib3',
 	description: 'draw a 3d model and make it real',
+	manifest: '/manifest.json',
+	icons: [
+		{
+			rel: 'icon',
+			url: '/icon.jpeg',
+		},
+	],
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
