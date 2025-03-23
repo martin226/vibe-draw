@@ -3,7 +3,7 @@ import { getSelectionAsText } from './getSelectionAsText'
 import { blobToBase64 } from './blobToBase64'
 import { Model3DPreviewShape } from '../PreviewShape/Model3DPreviewShape'
 
-export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = null) {
+export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = null, thinkingMode: boolean = false) {
   // Get the selected shapes (we need at least one)
   const selectedShapes = editor.getSelectedShapes()
 
@@ -46,6 +46,49 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
   // Get the text from the selection
   const selectionText = getSelectionAsText(editor)
 
+  if (thinkingMode) {
+    const response = await fetch('http://localhost:8000/api/trellis/task', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: "Qubico/trellis",
+        task_type: "image-to-3d",
+        input: {
+          image: dataUrl,
+          seed: 0,
+          ss_sampling_steps: 50,
+          slat_sampling_steps: 50,
+          ss_guidance_strength: 7.5,
+          slat_guidance_strength: 3,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw Error(`API error: ${errorData.detail || response.statusText}`)
+    }
+
+    const jsonResponse = await response.json()
+    
+    console.log("jsonResponse", jsonResponse)
+    
+    console.log("jsonResponse.data", jsonResponse.data)
+
+    const taskId = jsonResponse.data.task_id;
+
+    console.log("Task ID:", taskId)
+
+    // wait for websocket to send back the task result
+    const result = await waitForTaskResult(taskId);
+
+    console.log("Result:", result)
+
+    return;
+  }
+
   try {
     // Send the image and text to the backend
     const response = await fetch('http://localhost:8000/api/queue/3d', {
@@ -55,7 +98,7 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
       },
       body: JSON.stringify({
         prompt: selectionText,
-        image_base64: dataUrl
+        image_base64: dataUrl,
       }),
     })
 
@@ -103,59 +146,132 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
 // Function to wait for the code generation to complete via SSE
 async function waitForCodeGeneration(taskId: string): Promise<{ content: string } | null> {
   return new Promise((resolve, reject) => {
-    const eventSource = new EventSource(`http://localhost:8000/api/subscribe/${taskId}`)
+    const eventSource = new EventSource(`http://localhost:8000/api/subscribe/${taskId}`);
     
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse((event as MessageEvent).data);
+        
+        if (data.status === 'completed') {
+          console.log('Code generation completed:', data);
+          if (data.content) {
+            resolve({ content: data.content });
+          } else {
+            resolve(null);
+          }
+          eventSource.close();
+        } else if (data.status === 'failed' || data.status === 'error') {
+          console.error('Code generation error:', data.message);
+          reject(new Error(data.message || 'Error generating code'));
+          eventSource.close();
+        } else {
+          console.log('Code generation status update:', data.message || data.status);
+        }
+      } catch (error) {
+        console.error('Error parsing event data:', error);
+        reject(error);
+        eventSource.close();
+      }
+    };
+    
+    // Keeping these event listeners for backward compatibility
     eventSource.addEventListener('start', (event) => {
-      console.log('Code generation started')
-    })
+      console.log('Code generation started');
+    });
     
     eventSource.addEventListener('complete', (event) => {
       try {
-        const data = JSON.parse((event as MessageEvent).data)
-        console.log('Complete event received:', data)
+        const data = JSON.parse((event as MessageEvent).data);
+        console.log('Complete event received:', data);
         
         if (data.content) {
-          resolve({ content: data.content })
+          resolve({ content: data.content });
         } else {
-          resolve(null)
+          resolve(null);
         }
-        eventSource.close()
+        eventSource.close();
       } catch (error) {
-        console.error('Error parsing complete event:', error)
-        reject(error)
-        eventSource.close()
+        console.error('Error parsing complete event:', error);
+        reject(error);
+        eventSource.close();
       }
-    })
+    });
     
     eventSource.addEventListener('error', (event) => {
-      console.error('SSE error event received')
+      console.error('SSE error event received');
       try {
-        const data = JSON.parse((event as MessageEvent).data)
-        reject(new Error(data.error || 'Error generating code'))
+        const data = JSON.parse((event as MessageEvent).data);
+        reject(new Error(data.error || 'Error generating code'));
       } catch (e) {
-        reject(new Error('Unknown error in code generation'))
+        reject(new Error('Unknown error in code generation'));
       } finally {
-        eventSource.close()
+        eventSource.close();
       }
-    })
+    });
     
     // Handle general error case
     eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error)
-      reject(new Error('Error with SSE connection'))
-      eventSource.close()
-    }
+      console.error('SSE connection error:', error);
+      reject(new Error('Error with SSE connection'));
+      eventSource.close();
+    };
     
     // Set a timeout in case the SSE connection doesn't close properly
     setTimeout(() => {
       if (eventSource.readyState !== EventSource.CLOSED) {
-        console.warn('Code generation timed out, closing SSE connection')
-        eventSource.close()
-        reject(new Error('Code generation timed out'))
+        console.warn('Code generation timed out, closing SSE connection');
+        eventSource.close();
+        reject(new Error('Code generation timed out'));
       }
-    }, 120000) // 2 minute timeout
-  })
+    }, 300000); // 5 minute timeout
+  });
 }
+
+async function waitForTaskResult(taskId: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const eventSource = new WebSocket(`http://localhost:8000/api/trellis/task/ws/${taskId}`);
+
+    eventSource.onmessage = (event) => {
+      const data = JSON.parse((event as MessageEvent).data);
+      
+      if (data.status === 'completed') {
+        console.log('3D model ready:', data.data);
+        resolve(data.data);
+        eventSource.close();
+      } else if (data.status === 'failed' || data.status === 'error') {
+        console.error('Error:', data.message);
+        reject(new Error(data.message || 'Unknown error occurred'));
+        eventSource.close();
+      } else {
+        console.log('Status update:', data.message);
+      }
+    };
+
+    eventSource.onerror = (event) => {
+      console.error('WebSocket connection error:', event);
+      reject(new Error('Error with WebSocket connection'));
+      eventSource.close();
+    };
+
+    eventSource.onopen = () => {
+      console.log('WebSocket connection opened');
+    };
+
+    eventSource.onclose = () => {
+      console.log('WebSocket connection closed');
+    };
+    
+    // Set a timeout in case the WebSocket connection doesn't close properly
+    setTimeout(() => {
+      if (eventSource.readyState !== WebSocket.CLOSED) {
+        console.warn('Task timed out, closing WebSocket connection');
+        eventSource.close();
+        reject(new Error('Task timed out'));
+      }
+    }, 120000); // 2 minute timeout
+  });
+}
+
 
 function processThreeJsCode(code: string): string {
   let processedCode = code;
