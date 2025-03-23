@@ -103,6 +103,7 @@ interface ObjectStoreState {
   removeObject: (id: string) => void
   clearObjects: () => void
   addObjectFromCode: (code: string) => THREE.Object3D | null
+  addObjectWithGltf: (url: string) => Promise<THREE.Object3D | null>
 }
 
 // Helper to convert a THREE.Object3D to a StoredObject
@@ -208,6 +209,51 @@ const threeObjectToStoredObject = (object: THREE.Object3D): StoredObject => {
   };
 };
 
+// Helper function to prepare materials for proper rendering
+const prepareMaterial = (material: THREE.Material) => {
+  // Common fixes for materials
+  if (material) {
+    // Ensure the material is using appropriate side setting (GLTF often uses backside only)
+    material.side = THREE.DoubleSide;
+    
+    // Ensure color is properly set for common material types
+    if (material instanceof THREE.MeshStandardMaterial) {
+      // Make sure color has a proper value and not black by default
+      if (!material.color || material.color.getHex() === 0x000000) {
+        material.color.set(0xcccccc); // Set a light gray as fallback
+      }
+      // Increase emission for better visibility
+      if (material.emissive && material.emissive.getHex() === 0) {
+        material.emissive.set(0x111111);
+      }
+      // Make sure materials reflect light properly
+      material.metalness = material.metalness || 0.3;
+      material.roughness = material.roughness || 0.7;
+    } else if (material instanceof THREE.MeshBasicMaterial) {
+      // For basic materials, ensure color is not black
+      if (!material.color || material.color.getHex() === 0x000000) {
+        material.color.set(0xcccccc);
+      }
+    } else if (material instanceof THREE.MeshPhongMaterial || 
+               material instanceof THREE.MeshLambertMaterial) {
+      // Ensure the material color isn't black
+      if (!material.color || material.color.getHex() === 0x000000) {
+        material.color.set(0xcccccc);
+      }
+    }
+    
+    // Ensure textures are properly set up if present
+    if ('map' in material && material.map) {
+      // Use proper casting for TypeScript
+      (material.map as THREE.Texture).colorSpace = THREE.SRGBColorSpace;
+      material.needsUpdate = true;
+    }
+    
+    // Update the material to apply changes
+    material.needsUpdate = true;
+  }
+};
+
 export const useObjectStore = create<ObjectStoreState>()((set, get) => ({
   // Initial state
   objects: [],
@@ -299,6 +345,74 @@ export const useObjectStore = create<ObjectStoreState>()((set, get) => ({
       return object;
     } catch (err) {
       console.error('Error executing code:', err);
+      return null;
+    }
+  },
+  
+  addObjectWithGltf: async (url: string) => {
+    try {
+      // Dynamically import GLTFLoader
+      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+      const loader = new GLTFLoader();
+      
+      return new Promise((resolve, reject) => {
+        loader.load(
+          url,
+          (gltf) => {
+            const model = gltf.scene;
+            
+            if (!(model instanceof THREE.Object3D)) {
+              console.error('The GLTF file did not return a valid THREE.Object3D');
+              resolve(null);
+              return;
+            }
+            
+            // Fix materials - traverse the model and ensure materials are properly configured
+            model.traverse((object) => {
+              if (object instanceof THREE.Mesh) {
+                // Enable shadows
+                object.castShadow = true;
+                object.receiveShadow = true;
+                
+                // Fix materials
+                if (object.material) {
+                  // If it's a single material
+                  if (!Array.isArray(object.material)) {
+                    prepareMaterial(object.material);
+                  } else {
+                    // If it's an array of materials
+                    object.material.forEach(mat => prepareMaterial(mat));
+                  }
+                }
+              }
+            });
+            
+            // Set properties
+            model.userData.isUserCreated = true;
+            model.userData.name = `GLTF Model ${get().meshCount + 1}`;
+            
+            // Position the model slightly above the ground to prevent clipping
+            model.position.set(0, 1, 0);
+            
+            // Add to store
+            get().addObject(model);
+            console.log('Added GLTF model to scene:', model);
+            
+            resolve(model);
+          },
+          // Progress callback
+          (xhr) => {
+            console.log(`${(xhr.loaded / xhr.total * 100)}% loaded`);
+          },
+          // Error callback
+          (error) => {
+            console.error('Error loading GLTF model:', error);
+            reject(error);
+          }
+        );
+      });
+    } catch (err) {
+      console.error('Error importing or loading GLTF model:', err);
       return null;
     }
   }
