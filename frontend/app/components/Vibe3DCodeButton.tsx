@@ -239,13 +239,13 @@ export function Vibe3DCodeButton() {
                   gap: '3px',
                 }}>
                   <BrainIcon />
-                  {/* <span style={{ 
+                  <span style={{ 
                     fontSize: '10px', 
                     opacity: 0.9,
                     fontWeight: thinkingEnabled ? 'bold' : 'normal',
                   }}>
                     AI
-                  </span> */}
+                  </span>
                 </div>
                 <ToggleSwitch 
                   enabled={thinkingEnabled}
