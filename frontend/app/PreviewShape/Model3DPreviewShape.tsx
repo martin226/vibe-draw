@@ -18,6 +18,7 @@ export type Model3DPreviewShape = TLBaseShape<
   'model3d',
   {
     threeJsCode: string
+    objectCode: string
     w: number
     h: number
     selectedShapes: TLShape[]
@@ -30,6 +31,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
   getDefaultProps(): Model3DPreviewShape['props'] {
     return {
       threeJsCode: '',
+      objectCode: '',
       w: (960 * 2) / 3,
       h: (540 * 2) / 3,
       selectedShapes: [],
@@ -245,18 +247,27 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
            <Icon 
             icon="plus"
             onClick={async () => {
-              const res = await fetch("http://localhost:8000/api/cerebras/parse", {
-                method: "POST",
-                body: shape.props.threeJsCode
-              });
-              const actualCode = await res.json();
-              console.log(actualCode);
+              if (!shape.props.objectCode) {
+                const res = await fetch("http://localhost:8000/api/cerebras/parse", {
+                  method: "POST",
+                  body: shape.props.threeJsCode
+                });
+                const actualCode = await res.json();
+                console.log(actualCode);
+                this.editor.updateShape<Model3DPreviewShape>({
+                  id: shape.id,
+                  type: 'model3d',
+                  props: {
+                    objectCode: actualCode.content,
+                  },
+                });
+              }
               
               if (activeTab !== 'threejs') {
                 setActiveTab('threejs');
                 // Wait for tab switch to complete before adding object
                 setTimeout(() => {
-                  const result = addObjectFromCode(actualCode.content);
+                  const result = addObjectFromCode(shape.props.objectCode);
                   if (!result) {
                     toast.addToast({
                       icon: 'warning-triangle',
@@ -266,7 +277,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
                 }, 100); // Short delay to ensure tab context is ready
               } else {
                 // Already on threejs tab, add object directly
-                const result = addObjectFromCode(actualCode.content);
+                const result = addObjectFromCode(shape.props.objectCode);
                 if (!result) {
                   toast.addToast({
                     icon: 'warning-triangle',

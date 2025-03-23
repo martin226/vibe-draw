@@ -23,7 +23,7 @@ export async function vibe3DCode(editor: Editor) {
     type: 'model3d',
     x: maxX + 60, // to the right of the selection
     y: midY - (540 * 2) / 3 / 2, // half the height of the preview's initial shape
-    props: { threeJsCode: '', selectedShapes: selectedShapes },
+    props: { threeJsCode: '', objectCode: '', selectedShapes: selectedShapes },
   })
 
   const selectedShapesWithoutModel3d = selectedShapes.filter((shape) => shape.type !== 'model3d')
