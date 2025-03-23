@@ -56,3 +56,29 @@ class TaskStatusResponse(BaseModel):
     task_id: str = Field(..., description="Task ID")
     status: str = Field(..., description="Status of the task (pending, completed, failed)")
     result: Optional[Union[ClaudeResponse, GeminiImageResponse]] = Field(None, description="Result of the task if completed")
+
+class TrellisWebhookConfig(BaseModel):
+    endpoint: Optional[str] = None
+    secret: Optional[str] = None
+
+class TrellisConfig(BaseModel):
+    webhook_config: Optional[TrellisWebhookConfig] = None
+
+class TrellisInput(BaseModel):
+    image: str
+    seed: Optional[int] = 0
+    ss_sampling_steps: Optional[int] = Field(50, ge=10, le=50)
+    slat_sampling_steps: Optional[int] = Field(50, ge=10, le=50)
+    ss_guidance_strength: Optional[float] = Field(7.5, gt=0, le=10)
+    slat_guidance_strength: Optional[float] = Field(3, gt=0, le=10)
+
+class TrellisRequest(BaseModel):
+    model: str = "Qubico/trellis"
+    task_type: str = "image-to-3d"
+    input: TrellisInput
+    config: Optional[TrellisConfig] = None
+
+class TrellisResponse(BaseModel):
+    id: str
+    status: str
+    # Other fields can be added as needed based on the API response
