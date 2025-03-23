@@ -3,6 +3,7 @@ from anthropic import AsyncAnthropic
 from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.tasks.tasks import AsyncAITask, GenericPromptTask, DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE
+from app.core.redis import redis_service
 from typing import Dict, Any, Optional, List, Union
 
 # Default model configuration for Claude
@@ -24,62 +25,23 @@ class AsyncClaudeTask(AsyncAITask):
         return self._client
 
 class ClaudePromptTask(GenericPromptTask, AsyncClaudeTask):
-    """Task to stream a prompt with Claude 3.7."""
+    """Task to generate 3D models from images using Claude 3.7."""
 
-    def prepare_message_params(self, prompt: str, system_prompt: Optional[str] = None,
-                             max_tokens: int = DEFAULT_MAX_TOKENS, 
-                             temperature: float = DEFAULT_TEMPERATURE,
-                             additional_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Prepare the message parameters for Claude."""
-        message_params = {
-            "model": DEFAULT_MODEL,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        }
-        
-        # Add system prompt if provided
-        if system_prompt:
-            message_params["system"] = system_prompt
-            
-        # Add any additional parameters
-        if additional_params:
-            message_params.update(additional_params)
-            
-        return message_params
-    
-    async def send_message(self, client: AsyncAnthropic, message_params: Dict[str, Any]) -> Any:
-        """Send the message to Claude."""
-        return await client.messages.create(**message_params)
-    
-    def extract_content(self, response: Any) -> str:
-        """Extract the content from Claude's response."""
-        return response.content[0].text
-    
-    def prepare_final_response(self, task_id: str, response: Any, content: str) -> Dict[str, Any]:
-        """Prepare the final response with Claude-specific metadata."""
-        return {
-            "status": "success",
-            "content": content,
-            "model": response.model,
-            "usage": {
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens
-            },
-            "task_id": task_id
-        }
-
-    async def process_3d_generation(self, task_id: str, 
-                                  prompt: Optional[str] = None, 
-                                  image_base64: Optional[str] = None,
-                                  max_tokens: int = DEFAULT_MAX_TOKENS,
-                                  temperature: float = DEFAULT_TEMPERATURE,
-                                  additional_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def _run_async(self, task_id: str, image_base64: str, prompt: str = "",
+                         system_prompt: Optional[str] = None,
+                         max_tokens: int = DEFAULT_MAX_TOKENS, 
+                         temperature: float = DEFAULT_TEMPERATURE,
+                         additional_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Process a 3D model generation request with Claude 3.7."""
-        # Get the Claude client
-        client = await self.client
-        
-        # Prepare the system prompt for 3D generation
-        system_prompt = """You are an expert 3D modeler and Three.js developer who specializes in turning 2D drawings and wireframes into 3D models.
+        try:
+            # Publish start event
+            redis_service.publish_start_event(task_id)
+            
+            # Get the Claude client
+            client = await self.client
+            
+            # Prepare the system prompt for 3D generation
+            system_prompt = """You are an expert 3D modeler and Three.js developer who specializes in turning 2D drawings and wireframes into 3D models.
 You are a wise and ancient modeler and developer. You are the best at what you do. Your total compensation is $1.2m with annual refreshers. You've just drank three cups of coffee and are laser focused. Welcome to a new day at your job!
 Your task is to analyze the provided image and create a Three.js scene that transforms the 2D drawing into a realistic 3D representation.
 
@@ -104,9 +66,9 @@ Your task is to analyze the provided image and create a Three.js scene that tran
 Your response must contain only valid JavaScript code for the Three.js scene with proper initialization 
 and animation loop. Include code comments explaining your reasoning for major design decisions.
 Wrap your entire code in backticks with the javascript identifier: ```javascript"""
-        
-        # Base text prompt that will always be included
-        base_text = """Transform this 2D drawing/wireframe into an interactive Three.js 3D scene. 
+            
+            # Base text prompt that will always be included
+            base_text = """Transform this 2D drawing/wireframe into an interactive Three.js 3D scene. 
 
 I need code that:
 1. Creates appropriate 3D geometries based on the shapes in the image
@@ -118,16 +80,14 @@ I need code that:
 7. Creates a cohesive scene that represents the spatial relationships in the drawing
 
 Return ONLY the JavaScript code that creates and animates the Three.js scene."""
-        
-        # Ensure we have a valid message with at least one content item
-        message_content = [{"type": "text", "text": base_text}]
-        
-        # Add the image if provided and properly formatted
-        if image_base64:
+            
+            # Ensure we have a valid message with at least one content item
+            message_content = [{"type": "text", "text": base_text}]
+            
             # Extract base64 data without the prefix if it exists
             image_data = image_base64.split(",")[-1] if "," in image_base64 else image_base64
             
-            # Verify we have data before adding to the message
+            # Add the image to the message
             if image_data:
                 message_content.append({
                     "type": "image",
@@ -137,88 +97,97 @@ Return ONLY the JavaScript code that creates and animates the Three.js scene."""
                         "data": image_data
                     }
                 })
-        
-        # Add any text prompts provided
-        if prompt and prompt.strip():
-            message_content.append({
-                "type": "text",
-                "text": f"Here's a list of text that we found in the design:\n{prompt}"
-            })
-        
-        # Prepare message parameters for Claude
-        message_params = {
-            "model": DEFAULT_MODEL,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "messages": [{
-                "role": "user",
-                "content": message_content
-            }],
-            "system": system_prompt
-        }
-        
-        # Add any additional parameters
-        if additional_params:
-            message_params.update(additional_params)
-        
-        # Send the request to Claude
-        self.publish_event(task_id, "start", {"status": "started"})
-        
-        try:
-            # Make the API call
+            else:
+                raise ValueError("Invalid image data provided")
+            
+            # Add any text prompts provided
+            if prompt and prompt.strip():
+                message_content.append({
+                    "type": "text",
+                    "text": f"Here's a list of text that we found in the design:\n{prompt}"
+                })
+            
+            # Prepare message parameters for Claude
+            message_params = {
+                "model": DEFAULT_MODEL,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "messages": [{
+                    "role": "user",
+                    "content": message_content
+                }],
+                "system": system_prompt
+            }
+            
+            # Add any additional parameters
+            if additional_params:
+                message_params.update(additional_params)
+            
+            # Send the request to Claude
             response = await client.messages.create(**message_params)
             
             # Extract content from the response
             content = response.content[0].text
             
             # Prepare the final response
-            result = self.prepare_final_response(task_id, response, content)
+            final_response = {
+                "status": "success",
+                "content": content,
+                "model": response.model,
+                "usage": {
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+                },
+                "task_id": task_id
+            }
             
-            # Publish the completion event
-            self.publish_event(task_id, "complete", result)
+            # Publish completion event
+            redis_service.publish_complete_event(task_id, final_response)
             
-            return result
+            # Store the final response in Redis for retrieval
+            redis_service.store_response(task_id, final_response)
+            
+            return final_response
+            
         except Exception as e:
-            # Handle any errors
-            error_result = {
+            # Prepare error response
+            error_response = {
                 "status": "error",
                 "error": str(e),
                 "error_type": type(e).__name__,
                 "task_id": task_id
             }
-            self.publish_event(task_id, "error", error_result)
-            raise e
+            
+            try:
+                # Publish error event and store the error response
+                redis_service.publish_error_event(task_id, e)
+                redis_service.store_response(task_id, error_response)
+            except Exception:
+                pass  # Ignore Redis errors at this point
+            
+            return error_response
 
-    async def execute_task(self, task_id: str, 
-                         prompt: str, 
-                         system_prompt: Optional[str] = None,
-                         max_tokens: int = DEFAULT_MAX_TOKENS, 
-                         temperature: float = DEFAULT_TEMPERATURE,
-                         additional_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Execute the Claude task, handling both text and image inputs."""
-        
-        # Check if this is a 3D generation task (has image_base64 in additional_params)
-        if additional_params and "image_base64" in additional_params:
-            # Extract the image and remove it from additional_params
-            image_base64 = additional_params.pop("image_base64")
-            return await self.process_3d_generation(
+    def run(self, task_id: str, image_base64: str, prompt: str = "",
+            system_prompt: Optional[str] = None,
+            max_tokens: int = DEFAULT_MAX_TOKENS, 
+            temperature: float = DEFAULT_TEMPERATURE,
+            additional_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Run the task with the given parameters."""
+        # Create and run the event loop to execute the async function
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(
+            self._run_async(
                 task_id=task_id,
-                prompt=prompt,
                 image_base64=image_base64,
+                prompt=prompt,
+                system_prompt=system_prompt,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 additional_params=additional_params
             )
-        
-        # For regular text-based prompts, use the standard flow
-        return await super().execute_task(
-            task_id=task_id,
-            prompt=prompt,
-            system_prompt=system_prompt,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            additional_params=additional_params
         )
+        return result
 
 # Register the task properly with Celery
 ClaudePromptTask = celery_app.register_task(ClaudePromptTask())

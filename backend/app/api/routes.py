@@ -84,6 +84,7 @@ async def queue_task(type: str, request: StreamRequest):
         ClaudePromptTask.apply_async(
             args=[
                 task_id,
+                request.image_base64,
                 request.prompt,
                 request.system_prompt,
                 request.max_tokens,
