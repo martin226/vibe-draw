@@ -102,14 +102,13 @@ export function Vibe3DCodeButton() {
         borderRadius: '4px',
         border: 'none',
         cursor: isProcessing ? 'not-allowed' : 'pointer',
-        fontSize: '14px',
-        fontWeight: 500,
+        fontSize: '18px',
+        fontWeight: 400,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         gap: '6px',
         transition: 'all 0.2s ease',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
         opacity: isProcessing ? 0.8 : 1,
       }}
       onMouseEnter={(e) => {
