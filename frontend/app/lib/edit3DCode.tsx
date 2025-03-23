@@ -1,37 +1,49 @@
-import { Editor, createShapeId, getSvgAsImage, TLShapeId, TLUnknownShape } from '@tldraw/tldraw'
+import { Editor, getSvgAsImage } from '@tldraw/tldraw'
 import { getSelectionAsText } from './getSelectionAsText'
 import { blobToBase64 } from './blobToBase64'
 import { Model3DPreviewShape } from '../PreviewShape/Model3DPreviewShape'
 
-export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = null) {
-  // Get the selected shapes (we need at least one)
+export async function edit3DCode(editor: Editor) {
+  // Get the selected shapes
   const selectedShapes = editor.getSelectedShapes()
-
-  if (selectedShapes.length === 0) throw Error('First select something to make real.')
-
-  // Create the preview shape for the 3D model
-  if (!shapeId) {
-    const { maxX, midY } = editor.getSelectionPageBounds()!
-    shapeId = createShapeId()
-    editor.createShape<Model3DPreviewShape>({
-      id: shapeId,
-      type: 'model3d',
-      x: maxX + 60, // to the right of the selection
-      y: midY - (540 * 2) / 3 / 2, // half the height of the preview's initial shape
-      props: { threeJsCode: '', selectedShapes: selectedShapes },
-    })
+  
+  if (selectedShapes.length === 0) {
+    throw Error('First select shapes for editing.')
   }
 
-  const selectedShapesWithoutModel3d = selectedShapes.filter((shape) => shape.type !== 'model3d')
+  // Filter the 3D model shapes and other shapes
+  const model3dShapes = selectedShapes.filter((shape) => shape.type === 'model3d')
+  const nonModel3dShapes = selectedShapes.filter((shape) => shape.type !== 'model3d')
+  
+  // Validation checks
+  if (model3dShapes.length === 0) {
+    throw Error('First select a 3D model to edit.')
+  }
+  
+  if (model3dShapes.length > 1) {
+    throw Error('Select only one 3D model at a time.')
+  }
+  
+  if (nonModel3dShapes.length === 0) {
+    throw Error('Select at least one drawing or shape to guide the editing.')
+  }
+  
+  // Get the model3D shape and its Three.js code
+  const model3dShape = model3dShapes[0] as Model3DPreviewShape
+  const threeJsCode = model3dShape.props.threeJsCode
+  
+  if (!threeJsCode || threeJsCode.length < 10) {
+    throw Error('The selected 3D model does not contain valid code.')
+  }
 
-  // Get an SVG based on the selected shapes
-  const svg = await editor.getSvg(selectedShapesWithoutModel3d, {
+  // Get an SVG based on the non-model3d shapes
+  const svg = await editor.getSvg(nonModel3dShapes, {
     scale: 1,
     background: true,
   })
 
   if (!svg) {
-    return
+    throw Error('Could not generate SVG from selected shapes.')
   }
 
   // Turn the SVG into a DataUrl
@@ -43,19 +55,20 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
   })
   const dataUrl = await blobToBase64(blob!)
 
-  // Get the text from the selection
+  // Get any text from the selection
   const selectionText = getSelectionAsText(editor)
 
   try {
-    // Send the image and text to the backend
-    const response = await fetch('http://localhost:8000/api/queue/3d', {
+    // Send the code, image and text to the backend
+    const response = await fetch('http://localhost:8000/api/queue/edit', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        threejs_code: threeJsCode,
         prompt: selectionText,
-        image_base64: dataUrl
+        image_base64: dataUrl,
       }),
     })
 
@@ -67,46 +80,46 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
     // Get the response with task ID
     const jsonResponse = await response.json()
     
-    // Now wait for the completed code via SSE
-    const generatedCodeData = await waitForCodeGeneration(jsonResponse.task_id)
+    // Now wait for the edited code via SSE
+    const editedCodeData = await waitForCodeEditing(jsonResponse.task_id)
     
-    if (generatedCodeData && generatedCodeData.content) {
-      // Extract the Three.js code from the response
-      const threeJsCode = processThreeJsCode(generatedCodeData.content);
+    if (editedCodeData && editedCodeData.content) {
+      // Extract the edited Three.js code from the response
+      const editedThreeJsCode = processThreeJsCode(editedCodeData.content)
       
       // Make sure we have code
-      if (threeJsCode.length < 100) {
-        console.warn(generatedCodeData.content)
-        throw Error('Could not generate a 3D model from those wireframes.')
+      if (editedThreeJsCode.length < 100) {
+        console.warn(editedCodeData.content)
+        throw Error('Could not generate edited 3D model code.')
       }
 
-      // Update the shape with the new props
+      // Update the shape with the edited code
       editor.updateShape<Model3DPreviewShape>({
-        id: shapeId,
+        id: model3dShape.id,
         type: 'model3d',
         props: {
-          threeJsCode,
+          threeJsCode: editedThreeJsCode,
         },
       })
 
-      console.log(`Response received from backend`)
+      console.log(`3D model successfully edited`)
+      return model3dShape.id
     } else {
-      throw Error('No code was generated')
+      throw Error('No code was generated from the edit')
     }
   } catch (e) {
-    // If anything went wrong, delete the shape
-    editor.deleteShape(shapeId)
+    console.error('Error in edit3DCode:', e)
     throw e
   }
 }
 
-// Function to wait for the code generation to complete via SSE
-async function waitForCodeGeneration(taskId: string): Promise<{ content: string } | null> {
+// Function to wait for the code editing to complete via SSE
+async function waitForCodeEditing(taskId: string): Promise<{ content: string } | null> {
   return new Promise((resolve, reject) => {
     const eventSource = new EventSource(`http://localhost:8000/api/subscribe/${taskId}`)
     
     eventSource.addEventListener('start', (event) => {
-      console.log('Code generation started')
+      console.log('Code editing started')
     })
     
     eventSource.addEventListener('complete', (event) => {
@@ -131,9 +144,9 @@ async function waitForCodeGeneration(taskId: string): Promise<{ content: string 
       console.error('SSE error event received')
       try {
         const data = JSON.parse((event as MessageEvent).data)
-        reject(new Error(data.error || 'Error generating code'))
+        reject(new Error(data.error || 'Error editing code'))
       } catch (e) {
-        reject(new Error('Unknown error in code generation'))
+        reject(new Error('Unknown error in code editing'))
       } finally {
         eventSource.close()
       }
@@ -149,9 +162,9 @@ async function waitForCodeGeneration(taskId: string): Promise<{ content: string 
     // Set a timeout in case the SSE connection doesn't close properly
     setTimeout(() => {
       if (eventSource.readyState !== EventSource.CLOSED) {
-        console.warn('Code generation timed out, closing SSE connection')
+        console.warn('Code editing timed out, closing SSE connection')
         eventSource.close()
-        reject(new Error('Code generation timed out'))
+        reject(new Error('Code editing timed out'))
       }
     }, 120000) // 2 minute timeout
   })
@@ -196,4 +209,4 @@ function processThreeJsCode(code: string): string {
   processedCode = processedCode.replace(/THREE\.OrbitControls/g, 'OrbitControls');
   
   return processedCode;
-}
+} 

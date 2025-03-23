@@ -32,6 +32,7 @@ class GeminiImageResponse(BaseModel):
 class StreamRequest(BaseModel):
     """Request model for streaming responses."""
     prompt: str = Field(..., description="The prompt to send to Claude")
+    threejs_code: Optional[str] = Field(None, description="The Three.js code to edit")
     system_prompt: Optional[str] = Field(None, description="Optional system prompt")
     max_tokens: Optional[int] = Field(4096, description="Maximum number of tokens to generate")
     temperature: Optional[float] = Field(0.7, description="Temperature for sampling")

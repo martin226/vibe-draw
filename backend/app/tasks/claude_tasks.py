@@ -191,3 +191,180 @@ Return ONLY the JavaScript code that creates and animates the Three.js scene."""
 
 # Register the task properly with Celery
 ClaudePromptTask = celery_app.register_task(ClaudePromptTask())
+
+class ClaudeEditTask(GenericPromptTask, AsyncClaudeTask):
+    """Task to edit 3D models using Claude 3.7."""
+
+    async def _run_async(self, task_id: str, threejs_code: str, image_base64: str = "", prompt: str = "",
+                         system_prompt: Optional[str] = None,
+                         max_tokens: int = DEFAULT_MAX_TOKENS, 
+                         temperature: float = DEFAULT_TEMPERATURE,
+                         additional_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Process a 3D model editing request with Claude 3.7."""
+        try:
+            # Validate input parameters
+            if not threejs_code:
+                raise ValueError("Three.js code is required")
+            
+            if not image_base64 and not prompt:
+                raise ValueError("At least one of image or text prompt must be provided")
+            
+            # Publish start event
+            redis_service.publish_start_event(task_id)
+            
+            # Get the Claude client
+            client = await self.client
+            
+            # Prepare the system prompt for 3D code editing
+            system_prompt = """You are an expert 3D modeler and Three.js developer who specializes in editing and enhancing Three.js code based on user input.
+You are a wise and ancient modeler and developer. You are the best at what you do. Your total compensation is $1.2m with annual refreshers. You've just drank three cups of coffee and are laser focused. Welcome to a new day at your job!
+Your task is to modify the provided Three.js code based on the user's requirements, which may include an image reference and/or text instructions.
+
+## EDITING GUIDELINES:
+- Maintain the overall structure and functionality of the original code
+- Modify only what's necessary to achieve the requested changes
+- Preserve any core functionality while enhancing or adapting the 3D model
+- Respect the original style and architecture of the code
+- If an image is provided, adapt the 3D model to match the visual reference
+- If text instructions are provided, follow them precisely
+
+## TECHNICAL IMPLEMENTATION:
+- Do not import any libraries. They have already been imported for you.
+- Maintain the existing Three.js scene structure
+- Preserve the camera and lighting setup unless explicitly asked to change it
+- Keep the original controls and animations unless requested otherwise
+- When adapting the model, ensure size and proportions remain appropriate
+- Use consistent naming conventions with the original code
+- Maintain the original material types when possible
+- Preserve comments and add new ones to explain significant changes
+
+## RESPONSE FORMAT:
+Your response must contain only the complete, valid JavaScript code for the modified Three.js scene.
+The code should be fully functional and ready to run without additional modification.
+Wrap your entire code in backticks with the javascript identifier: ```javascript"""
+            
+            # Base text prompt that will always be included
+            base_text = """Edit the provided Three.js code according to these requirements:
+1. Preserve the core functionality and structure
+2. Make only the necessary changes to meet the requirements
+3. Keep the code clean and well-organized
+4. Ensure the scene remains responsive to the container size
+5. Maintain consistent naming and style with the original code
+
+Return the COMPLETE JavaScript code for the modified Three.js scene."""
+            
+            # Ensure we have a valid message with at least one content item
+            message_content = [{"type": "text", "text": base_text}]
+            
+            # Add the Three.js code to edit
+            message_content.append({
+                "type": "text",
+                "text": f"Here is the Three.js code to edit:\n\n```javascript\n{threejs_code}\n```"
+            })
+            
+            # Add the image to the message if provided
+            if image_base64:
+                # Extract base64 data without the prefix if it exists
+                image_data = image_base64.split(",")[-1] if "," in image_base64 else image_base64
+                
+                message_content.append({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": image_data
+                    }
+                })
+            
+            # Add any text prompts provided
+            if prompt and prompt.strip():
+                message_content.append({
+                    "type": "text",
+                    "text": f"Here are the specific changes requested:\n{prompt}"
+                })
+            
+            # Prepare message parameters for Claude
+            message_params = {
+                "model": DEFAULT_MODEL,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "messages": [{
+                    "role": "user",
+                    "content": message_content
+                }],
+                "system": system_prompt
+            }
+            
+            # Add any additional parameters
+            if additional_params:
+                message_params.update(additional_params)
+            
+            # Send the request to Claude
+            response = await client.messages.create(**message_params)
+            
+            # Extract content from the response
+            content = response.content[0].text
+            
+            # Prepare the final response
+            final_response = {
+                "status": "success",
+                "content": content,
+                "model": response.model,
+                "usage": {
+                    "input_tokens": response.usage.input_tokens,
+                    "output_tokens": response.usage.output_tokens,
+                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+                },
+                "task_id": task_id
+            }
+            
+            # Publish completion event
+            redis_service.publish_complete_event(task_id, final_response)
+            
+            # Store the final response in Redis for retrieval
+            redis_service.store_response(task_id, final_response)
+            
+            return final_response
+            
+        except Exception as e:
+            # Prepare error response
+            error_response = {
+                "status": "error",
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "task_id": task_id
+            }
+            
+            try:
+                # Publish error event and store the error response
+                redis_service.publish_error_event(task_id, e)
+                redis_service.store_response(task_id, error_response)
+            except Exception:
+                pass  # Ignore Redis errors at this point
+            
+            return error_response
+
+    def run(self, task_id: str, threejs_code: str, image_base64: str = "", prompt: str = "",
+            system_prompt: Optional[str] = None,
+            max_tokens: int = DEFAULT_MAX_TOKENS, 
+            temperature: float = DEFAULT_TEMPERATURE,
+            additional_params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Run the task with the given parameters."""
+        # Create and run the event loop to execute the async function
+        loop = asyncio.get_event_loop()
+        result = loop.run_until_complete(
+            self._run_async(
+                task_id=task_id,
+                threejs_code=threejs_code,
+                image_base64=image_base64,
+                prompt=prompt,
+                system_prompt=system_prompt,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                additional_params=additional_params
+            )
+        )
+        return result
+
+# Register the task properly with Celery
+ClaudeEditTask = celery_app.register_task(ClaudeEditTask())

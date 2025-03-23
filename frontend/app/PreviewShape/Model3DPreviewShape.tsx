@@ -239,8 +239,7 @@ export class Model3DPreviewShapeUtil extends BaseBoxShapeUtil<Model3DPreviewShap
             icon="redo"
             onClick={async () => {
               this.editor.setSelectedShapes(shape.props.selectedShapes);
-              this.editor.deleteShape(shape);
-              await vibe3DCode(this.editor);
+              await vibe3DCode(this.editor, shape.id);
             }}
             onPointerDown={(e) => e.stopPropagation()}
            />

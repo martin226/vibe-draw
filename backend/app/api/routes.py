@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Body
 from sse_starlette.sse import EventSourceResponse
 from app.api.models import ClaudeResponse, StreamRequest, TaskResponse, TaskStatusResponse, GeminiImageResponse
-from app.tasks.claude_tasks import ClaudePromptTask
+from app.tasks.claude_tasks import ClaudePromptTask, ClaudeEditTask
 from app.tasks.gemini_tasks import GeminiPromptTask, GeminiImageGenerationTask
 from app.tasks.cerebras_tasks import get_cerebras_client
 from app.core.redis import redis_service
@@ -74,6 +74,7 @@ async def queue_task(type: str, request: StreamRequest):
     - image: For image generation using Gemini Imagen
     - extract_object: For object extraction (unimplemented)
     - llama: Uses Cerebras LLaMA model
+    - edit: Uses Claude 3.7 to edit existing Three.js code
     """
     # Generate a task ID if not provided
     task_id = request.task_id or str(uuid.uuid4())
@@ -84,6 +85,29 @@ async def queue_task(type: str, request: StreamRequest):
         ClaudePromptTask.apply_async(
             args=[
                 task_id,
+                request.image_base64,
+                request.prompt,
+                request.system_prompt,
+                request.max_tokens,
+                request.temperature,
+                request.additional_params
+            ],
+            task_id=task_id
+        )
+    elif type == "edit":
+        # Validate Three.js code is provided in additional_params
+        if not request.threejs_code:
+            raise HTTPException(status_code=400, detail="Three.js code is required for editing")
+        
+        # At least one of image or prompt must be provided
+        if not request.image_base64 and not request.prompt:
+            raise HTTPException(status_code=400, detail="At least one of image or text prompt must be provided")
+        
+        # Use the ClaudeEditTask for code editing
+        ClaudeEditTask.apply_async(
+            args=[
+                task_id,
+                request.threejs_code,
                 request.image_base64,
                 request.prompt,
                 request.system_prompt,
