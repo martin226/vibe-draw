@@ -1,5 +1,5 @@
 <div align="center">
-    <img alt="Logo" src="icon.png" width="100" />
+    <img alt="Logo" src="docs/icon.png" width="100" />
 </div>
 <h1 align="center">
     Vibe Draw
@@ -8,6 +8,13 @@
    turn your roughest sketches into stunning 3D worlds by vibe drawing
 </p>
 
+Winner @ GenAI Genesis 2025
+
+Devpost: https://devpost.com/software/vibe-draw
+
+![Vibe Draw UI](docs/ui.jpeg)
+
+![Vibe Draw 2D Canvas](docs/canvas.jpeg)
 
 # Inspiration
 
