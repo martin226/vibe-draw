@@ -16,6 +16,7 @@ Devpost: https://devpost.com/software/vibe-draw
 
 ![Vibe Draw 2D Canvas](docs/canvas.jpeg)
 
+![Vibe Draw 3D World](docs/world.jpeg)
 # Inspiration
 
 Creativity is often constrained by technical skills or complex software. We were inspired by the idea of democratizing 3D creation, making it easy and accessible to anyone, regardless of their artistic or technical abilities.
