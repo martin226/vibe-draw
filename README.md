@@ -8,6 +8,8 @@
    turn your roughest sketches into stunning 3D worlds by vibe drawing
 </p>
 
+https://github.com/user-attachments/assets/a3c804e1-b208-4855-b285-d571bedf1f3e
+
 ![Vibe Draw UI](docs/ui.jpeg)
 
 ![Vibe Draw 2D Canvas](docs/canvas.jpeg)
