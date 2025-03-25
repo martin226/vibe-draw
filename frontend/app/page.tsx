@@ -10,6 +10,7 @@ import { Model3DPreviewShapeUtil } from './PreviewShape/Model3DPreviewShape'
 import ThreeJSCanvas from './components/three/canvas'
 import { useTabStore } from './store/appStore'
 import TestAddCodeButton from './components/TestAddCodeButton'
+import { TldrawLogo } from './components/TldrawLogo'
 
 const Tldraw = dynamic(async () => (await import('@tldraw/tldraw')).Tldraw, {
 	ssr: false,
@@ -96,7 +97,7 @@ export default function App() {
 						} 
 						shapeUtils={shapeUtils}
 					>
-
+						<TldrawLogo />
 					</Tldraw>
 				</div>
 				<ThreeJSCanvas visible={activeTab === 'threejs'} />
