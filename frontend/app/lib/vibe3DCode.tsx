@@ -4,11 +4,11 @@ import { blobToBase64 } from './blobToBase64'
 import { Model3DPreviewShape } from '../PreviewShape/Model3DPreviewShape'
 import { useObjectStore } from '../store/appStore'
 
-export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = null, thinkingMode: boolean = false) {
+export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = null, thinkingMode: boolean = false, dataUrl: string | null = null) {
   // Get the selected shapes (we need at least one)
   const selectedShapes = editor.getSelectedShapes()
 
-  if (selectedShapes.length === 0) throw Error('First select something to make real.')
+  if (selectedShapes.length === 0 && !dataUrl) throw Error('First select something to make real.')
 
   // Create the preview shape for the 3D model
   if (!shapeId) {
@@ -35,18 +35,18 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
     background: true,
   })
 
-  if (!svg) {
+  if (!svg && !dataUrl) {
     return
   }
 
   // Turn the SVG into a DataUrl
   const IS_SAFARI = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-  const blob = await getSvgAsImage(svg, IS_SAFARI, {
+  const blob = svg ? await getSvgAsImage(svg, IS_SAFARI, {
     type: 'png',
     quality: 0.8,
     scale: 1,
-  })
-  const dataUrl = await blobToBase64(blob!)
+  }) : null
+  const finalDataUrl = dataUrl || await blobToBase64(blob!)
 
   // Get the text from the selection
   const selectionText = getSelectionAsText(editor)
@@ -62,7 +62,7 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
           model: "Qubico/trellis",
           task_type: "image-to-3d",
           input: {
-            image: dataUrl,
+            image: finalDataUrl,
             seed: 0,
             ss_sampling_steps: 50,
             slat_sampling_steps: 50,
@@ -124,7 +124,7 @@ export async function vibe3DCode(editor: Editor, shapeId: TLShapeId | null = nul
         },
         body: JSON.stringify({
           prompt: selectionText,
-          image_base64: dataUrl,
+          image_base64: finalDataUrl,
         }),
       })
 

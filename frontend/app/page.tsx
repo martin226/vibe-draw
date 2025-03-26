@@ -11,6 +11,7 @@ import ThreeJSCanvas from './components/three/canvas'
 import { useTabStore } from './store/appStore'
 import TestAddCodeButton from './components/TestAddCodeButton'
 import { TldrawLogo } from './components/TldrawLogo'
+import { ImageUploadButton } from './components/ImageUploadButton'
 
 const Tldraw = dynamic(async () => (await import('@tldraw/tldraw')).Tldraw, {
 	ssr: false,
@@ -93,6 +94,7 @@ export default function App() {
 								<Vibe3DCodeButton />
 								<ImproveDrawingButton />
 								<AutoDrawButton />
+								<ImageUploadButton />
 							</div>
 						} 
 						shapeUtils={shapeUtils}
